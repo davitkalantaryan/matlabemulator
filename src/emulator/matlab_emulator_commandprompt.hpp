@@ -6,16 +6,24 @@
 #define MATLAB_EMULATOR_COMMANDPROMPT_HPP
 
 #include <QTextEdit>
+#include <QTextLayout>
+
+#define BASE_CLASS  QTextEdit
 
 namespace matlab { namespace emulator {
 
-class CommandPrompt : public QTextEdit
+class CommandPrompt : public BASE_CLASS
 {
 public:
     CommandPrompt();
     ~CommandPrompt() override ;
 
 private:
+    bool ShouldIgnoreKeyEvent(QKeyEvent* keyEvent)const;
+
+private:
+    void keyPressEvent(QKeyEvent* keyEvent) override;
+    void keyReleaseEvent(QKeyEvent* keyEvent) override;
 };
 
 }} // namespace matlab { namespace  {

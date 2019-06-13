@@ -7,11 +7,21 @@ TEMPLATE = app
 TARGET = matlabemulator
 
 # include ($${PWD}/../../common/common_qt/sys_common.pri)
-
+include ($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_matrix_common.pri)
 
 QT += gui
 QT += core
 greaterThan(QT_MAJOR_VERSION, 4):QT += widgets
+
+LIBS += -leng
+LIBS += -lmat
+#LIBS += -lhdf5_hl
+#LIBS += -lhdf5
+
+win32{
+} else {
+    LIBS += -lpthread
+}
 
 SOURCES += \
     $${PWD}/../../../src/emulator/main_matlabemulator.cpp               \
