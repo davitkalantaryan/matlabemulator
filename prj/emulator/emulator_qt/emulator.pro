@@ -6,6 +6,15 @@
 TEMPLATE = app
 TARGET = matlabemulator
 
+CONFIG += DEBUG
+
+#CONFIG += c++17
+#QMAKE_CXXFLAGS += -std=c++14
+
+GCCPATH = $$system(which gcc)
+
+message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
+
 # include ($${PWD}/../../common/common_qt/sys_common.pri)
 include ($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_matrix_common.pri)
 
@@ -15,8 +24,8 @@ greaterThan(QT_MAJOR_VERSION, 4):QT += widgets
 
 LIBS += -leng
 LIBS += -lmat
-#LIBS += -lhdf5_hl
-#LIBS += -lhdf5
+LIBS += -lhdf5_hl
+LIBS += -lhdf5
 
 win32{
 } else {

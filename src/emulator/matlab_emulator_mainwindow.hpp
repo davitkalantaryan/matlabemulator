@@ -8,13 +8,25 @@
 #include <QMainWindow>
 #include "matlab_emulator_centralwidget.hpp"
 
+#ifndef OVERRIDE
+#ifdef CPP11_USED
+#define OVERRIDE override
+#else
+#define OVERRIDE
+#endif
+#endif
+
 namespace matlab { namespace emulator {
 
 class MainWindow : public QMainWindow
 {
+    Q_OBJECT
 public:
     MainWindow();
-    ~MainWindow() override ;
+    ~MainWindow() OVERRIDE ;
+
+private slots:
+    void ExitActionSlot();
 
 private:
     CentralWidget   m_centralWidget;

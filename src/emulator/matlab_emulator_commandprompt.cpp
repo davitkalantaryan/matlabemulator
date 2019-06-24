@@ -13,8 +13,15 @@
 
 using namespace matlab;
 
+#ifdef CPP11_USED
+#define STD_MOVE(_data) ::std::move(_data)
+#else
+#define STD_MOVE(_data)     (_data)
+#endif
+
 emulator::CommandPrompt::CommandPrompt()
 {
+    m_lastItemSet = 0;
     setText(">>");
     moveCursor(QTextCursor::End);
 }
@@ -33,9 +40,13 @@ bool emulator::CommandPrompt::ShouldIgnoreKeyEvent(QKeyEvent* a_keyEvent)const
     switch(aKey){
     case Qt::Key_Enter:case Qt::Key_Return:
         return true;
+    case Qt::Key_Up:
+        return true;
     case Qt::Key_Backspace:{
         QTextCursor aCursor = textCursor();
-        int nCursorPossition = aCursor.position();
+        int nCursorPossitionAll = aCursor.position();
+        int nTextBlockFirstPossition = aCursor.block().position();
+        int nCursorPossition = nCursorPossitionAll - nTextBlockFirstPossition;
 
         switch(nCursorPossition){
         case 1: case 2:{
@@ -50,7 +61,9 @@ bool emulator::CommandPrompt::ShouldIgnoreKeyEvent(QKeyEvent* a_keyEvent)const
     }break;
     case Qt::Key_Delete:{
         QTextCursor aCursor = textCursor();
-        int nCursorPossition = aCursor.position();
+        int nCursorPossitionAll = aCursor.position();
+        int nTextBlockFirstPossition = aCursor.block().position();
+        int nCursorPossition = nCursorPossitionAll - nTextBlockFirstPossition;
 
         switch(nCursorPossition){
         case 0: case 1:{
@@ -89,9 +102,36 @@ void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
             QString lineText = aCursor.block().text();
             if(lineText.size()>2){ // todo: make this better, check the case of multiline command
                 QString strCommand = lineText.mid(2);
-                ThisAppPtr->RunCommand( ::std::move(strCommand) );
+                if(!ThisAppPtr->RunCommand( strCommand )){
+                    setTextColor(QColor(255,0,0));
+                    append(QString("Unknown command: ")+strCommand);
+                    setTextColor(QColor(0,0,0));
+                }
+                m_commandsList.AddNewToTheFront(strCommand);
+                m_lastItemSet=0;
             }
             append(">>");
+        }break;
+        case Qt::Key_Up:{
+
+            QTextCursor aCursor = textCursor();
+            QString lineText = aCursor.block().text();
+            if(lineText.size()==2){ // todo: make this better, check the case of multiline command
+                if(m_commandsList.hasItem()){
+                    if(!m_lastItemSet){
+                        m_lastItem = m_commandsList.first();
+                        m_lastItemSet = 1;
+                    }
+                    else{
+                        // todo: remove last line (https://stackoverflow.com/questions/15326569/removing-last-line-from-qtextedit)
+                        if((++m_lastItem)==m_commandsList.lastPlus1()){
+                            m_lastItem = m_commandsList.first();
+                        }
+                    }
+                    insertPlainText(*m_lastItem);
+                }
+            }
+
         }break;
         default:
             break;
@@ -101,4 +141,41 @@ void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
     else{
         BASE_CLASS::keyReleaseEvent(a_keyEvent);
     }
+}
+
+
+
+/*////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+void emulator::RingList::AddNewToTheFront( const RingListType& a_new )
+{
+    size_t unSize = size();
+
+    if(unSize && (a_new == front())){
+        return;
+    }
+
+    if(unSize>=MAX_COMMANDS_SIZE){
+        pop_back();
+    }
+
+    push_front(a_new);
+}
+
+
+bool emulator::RingList::hasItem()const
+{
+    return size() ? true : false;
+}
+
+
+::std::list< RingListType >::const_iterator emulator::RingList::first()const
+{
+    return begin();
+}
+
+
+::std::list< RingListType >::const_iterator emulator::RingList::lastPlus1()const
+{
+    return end();
 }

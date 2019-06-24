@@ -10,33 +10,53 @@
 #include <engine.h>
 #include <QThread>
 #include <stdint.h>
+#include <QSettings>
+
+#ifndef OVERRIDE
+#ifdef CPP11_USED
+#define OVERRIDE override
+#else
+#define OVERRIDE
+#endif
+#endif
+
+#ifndef NEWNULLPTR
+#ifdef CPP11_USED
+#define NEWNULLPTR nullptr
+#else
+#define NEWNULLPTR NULL
+#endif
+#endif
 
 namespace matlab { namespace emulator {
 
-class MatlabThread : public QThread
+
+class CalcThread : public QThread
 {
 public:
-    MatlabThread();
-    ~MatlabThread() override;
+    CalcThread();
+    ~CalcThread() OVERRIDE;
 private:
-    void run() override ;
+    void run() OVERRIDE ;
 
 private:
-    Engine*                         m_pEngine;
-    uint64_t                        m_isEngineVisible : 1;
-    uint64_t                        m_bitwise64Reserved : 63;
 };
 
 class Application : public QApplication
 {
 public:
     Application(int& argc, char** argv);
-    ~Application() override ;
+    ~Application() OVERRIDE ;
 
-    void RunCommand( QString&& a_command );
+    bool RunCommand( QString& a_command );
 
 private:
-    //
+    CalcThread              m_calcThread;
+
+    QSettings*              m_pSettings;
+    Engine*                 m_pEngine;
+    uint64_t                m_isEngineVisible : 1;
+    uint64_t                m_bitwise64Reserved : 63;
 };
 
 }} // namespace matlab { namespace  {
