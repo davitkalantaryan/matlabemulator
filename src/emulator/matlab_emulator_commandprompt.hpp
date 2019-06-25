@@ -10,11 +10,14 @@
 #include <list>
 #include <QString>
 #include <stdint.h>
+#include <QList>
+#include <QVariant>
 
 #define MAX_COMMANDS_SIZE   128
 
-#define BASE_CLASS  QTextEdit
-#define RingListType    QString
+#define BASE_CLASS      QTextEdit
+#define RingListType    QVariant
+#define BASE_LIST       ::QList
 
 #ifndef OVERRIDE
 #ifdef CPP11_USED
@@ -26,13 +29,19 @@
 
 namespace matlab { namespace emulator {
 
-class RingList final : private ::std::list< RingListType >
+//class RingList final : private ::std::list< RingListType >
+class RingList
 {
 public:
     void AddNewToTheFront( const RingListType& a_new );
     bool hasItem()const;
-    ::std::list< RingListType >::const_iterator first()const;
-    ::std::list< RingListType >::const_iterator lastPlus1()const;
+    BASE_LIST< RingListType >::const_iterator first()const;
+    BASE_LIST< RingListType >::const_iterator lastPlus1()const;
+    const BASE_LIST< RingListType >& list()const;
+    void SetList(const BASE_LIST< RingListType >& aList);
+
+private:
+    BASE_LIST< RingListType >   m_container;
 };
 
 class CommandPrompt : public BASE_CLASS
@@ -50,7 +59,7 @@ private:
 
 private:
     RingList                                m_commandsList;
-    ::std::list< QString >::const_iterator  m_lastItem;
+    BASE_LIST< QVariant >::const_iterator   m_lastItem;
     uint64_t                                m_lastItemSet : 1;
 };
 

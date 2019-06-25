@@ -4,8 +4,13 @@
 //
 
 #include "matlab_emulator_application.hpp"
-#include <QDebug>
 #include <QRegExp>
+#include <iostream>
+#include <QFileInfo>
+#ifdef _WIN32
+#else
+#include <unistd.h>
+#endif
 
 using namespace matlab;
 
@@ -28,11 +33,17 @@ using namespace matlab;
 #define CHECK_MATLAB_ENGINE_AND_DO(_function,...)   CHECK_MATLAB_ENGINE_AND_DO_RAW(_function,m_pEngine,__VA_ARGS__)
 #define CHECK_MATLAB_ENGINE_AND_DO_NO_ARGS(_function)   CHECK_MATLAB_ENGINE_AND_DO_RAW(_function,m_pEngine)
 
+void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext & a_ctx,const QString &a_message);
 
-emulator::Application::Application(int& a_argc, char** a_argv)
+emulator::Application::Application(int* a_pipe, int& a_argc, char** a_argv)
     :
       QApplication (a_argc,a_argv)
 {
+    m_errorPipes = a_pipe;
+    //setbuffer(stderr,m_vcErrorBuffer,1023);
+    //
+    m_originalMessageeHandler = qInstallMessageHandler(&noMessageOutputStatic);
+
     QCoreApplication::setOrganizationName("DESY");
     QCoreApplication::setApplicationName("matlabemulator");
         // use ini files on all platforms
@@ -54,6 +65,10 @@ emulator::Application::Application(int& a_argc, char** a_argv)
     //    engSetVisible(m_pEngine,0);
     //}
     CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,0);
+
+    ::QObject::connect(&m_settingsUpdateTimer,&QTimer::timeout,this,[this](){
+        emit UpdateSettingsSignal(*m_pSettings);
+    });
 }
 
 
@@ -67,6 +82,59 @@ emulator::Application::~Application()
     }
 
     delete m_pSettings;
+
+    qInstallMessageHandler(m_originalMessageeHandler);
+}
+
+
+void emulator::Application::noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext & a_context,const QString &a_message)
+{
+    ThisAppPtr->noMessageOutput(a_type,a_context,a_message);
+}
+
+
+void emulator::Application::noMessageOutput(QtMsgType a_type, const QMessageLogContext &
+                                            #ifdef QT_DEBUG
+                                            a_context
+                                            #endif
+                                            ,const QString &a_message)
+{
+
+#ifdef QT_DEBUG
+    QString msg =
+            QString("fl:") + QFileInfo(a_context.file).fileName() + QString(",ln:") + QString::number(a_context.line) + ": ";
+#else
+    QString msg;
+#endif
+
+    switch (a_type) {
+    case QtDebugMsg:
+        msg += ("debug   : " + a_message);
+        break;
+    case QtWarningMsg:
+        msg += ("warning : " + a_message);
+        break;
+    case QtCriticalMsg:
+        msg += ("critical: " + a_message);
+        break;
+    case QtFatalMsg:
+        msg += ("fatal   : " + a_message);
+        break;
+    case QtInfoMsg:
+        msg += ("info    : " + a_message);
+        break;
+    //default:
+    //    msg = QString("%1 - def: %2").arg(nowstr, a_message);
+    //    break;
+    }
+
+    emit NewLoggingReadySignal(a_type,msg);
+    ::std::wcout << msg.toStdWString() << ::std::endl;
+}
+
+emulator::Application::operator ::QSettings& ()
+{
+    return *m_pSettings;
 }
 
 
@@ -89,9 +157,30 @@ bool emulator::Application::RunCommand( QString& a_command )
                 cLast = *(--strEnd);
             }
             if(cLast == ')'){
+#define INDX_TO_DISPLAY 2
+                char vcOutBuffr[1024];
                 int nIndex2 = static_cast<int>(strEnd-a_command.begin());
                 QString matCommand = a_command.mid(nIndex1,(nIndex2-nIndex1));
+                //setbuffer(stderr,m_vcErrorBuffer,1023);
+                //vcOutBuffr[0]=0;vcOutBuffr[1]=0;vcOutBuffr[2]=0;vcOutBuffr[3]=0;
+                write(m_errorPipes[1]," ",1);
+                read(m_errorPipes[0],vcOutBuffr,255);
+                vcOutBuffr[INDX_TO_DISPLAY]=0;
+                CHECK_MATLAB_ENGINE_AND_DO(engOutputBuffer,vcOutBuffr,1023);
+                write(m_errorPipes[1]," ",1);
                 CHECK_MATLAB_ENGINE_AND_DO(engEvalString,matCommand.toStdString().c_str());
+                if(vcOutBuffr[INDX_TO_DISPLAY]){
+                    vcOutBuffr[INDX_TO_DISPLAY]='\n';
+                    emit MatlabOutputSignal(&vcOutBuffr[INDX_TO_DISPLAY]);
+                }
+                else{
+                    memset(vcOutBuffr,0,256);
+                    read(m_errorPipes[0],vcOutBuffr,255);
+                    if(vcOutBuffr[0]){
+                        //qWarning()<<vcOutBuffr;
+                        emit MatlabErrorOutputSignal(vcOutBuffr);
+                    }
+                }
                 bHandled=true;
             }
         }

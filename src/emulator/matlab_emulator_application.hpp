@@ -11,6 +11,8 @@
 #include <QThread>
 #include <stdint.h>
 #include <QSettings>
+#include <QDebug>
+#include <QTimer>
 
 #ifndef OVERRIDE
 #ifdef CPP11_USED
@@ -44,11 +46,24 @@ private:
 
 class Application : public QApplication
 {
+    Q_OBJECT
 public:
-    Application(int& argc, char** argv);
+    Application(int* pPipe, int& argc, char** argv);
     ~Application() OVERRIDE ;
 
     bool RunCommand( QString& a_command );
+    operator ::QSettings& ();
+
+private:
+signals:
+    void NewLoggingReadySignal(QtMsgType logType, const QString& logMsg);
+    void MatlabOutputSignal(const QString& logMsg);
+    void MatlabErrorOutputSignal(const QString& logMsg);
+    void UpdateSettingsSignal(QSettings& settings);
+
+private:
+    static void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
+    void noMessageOutput(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
 
 private:
     CalcThread              m_calcThread;
@@ -57,6 +72,11 @@ private:
     Engine*                 m_pEngine;
     uint64_t                m_isEngineVisible : 1;
     uint64_t                m_bitwise64Reserved : 63;
+
+    QtMessageHandler        m_originalMessageeHandler;
+    //char                    m_vcErrorBuffer[1024];
+    int*                    m_errorPipes;
+    QTimer                  m_settingsUpdateTimer;
 };
 
 }} // namespace matlab { namespace  {

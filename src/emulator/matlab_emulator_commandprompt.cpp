@@ -19,17 +19,44 @@ using namespace matlab;
 #define STD_MOVE(_data)     (_data)
 #endif
 
+#define COMMANDS    "commands"
+
 emulator::CommandPrompt::CommandPrompt()
 {
     m_lastItemSet = 0;
-    setText(">>");
+    QSettings& aSettings = static_cast<QSettings&>(*ThisAppPtr);
+
+    //if(aSettings.contains(COMMANDS)){
+    //    QList<QVariant> aComandsList = aSettings.value(COMMANDS).toList();
+    //}
+    m_commandsList.SetList(aSettings.value(COMMANDS,QList<QVariant>()).toList());
+
+    ::QObject::connect(ThisAppPtr,&Application::MatlabOutputSignal,this,[this](const QString& a_matlabOut){
+        moveCursor(QTextCursor::End);
+        insertPlainText(a_matlabOut);
+    });
+
+    ::QObject::connect(ThisAppPtr,&Application::MatlabErrorOutputSignal,this,[this](const QString& a_matlabOut){
+        moveCursor(QTextCursor::End);
+        setTextColor(QColor(255,0,0));
+        append(a_matlabOut);
+        setTextColor(QColor(0,0,0));
+    });
+
+    ::QObject::connect(ThisAppPtr,&Application::UpdateSettingsSignal,this,[this](QSettings& a_appSettings){
+        a_appSettings.setValue(COMMANDS,m_commandsList.list());
+    });
+
+    //setText(">>");
+    setPlainText(">>");
     moveCursor(QTextCursor::End);
 }
 
 
 emulator::CommandPrompt::~CommandPrompt()
 {
-    //
+    QSettings& aSettings = static_cast<QSettings&>(*ThisAppPtr);
+    aSettings.setValue(COMMANDS,m_commandsList.list());
 }
 
 
@@ -39,8 +66,7 @@ bool emulator::CommandPrompt::ShouldIgnoreKeyEvent(QKeyEvent* a_keyEvent)const
 
     switch(aKey){
     case Qt::Key_Enter:case Qt::Key_Return:
-        return true;
-    case Qt::Key_Up:
+    case Qt::Key_Up: case Qt::Key_Down:
         return true;
     case Qt::Key_Backspace:{
         QTextCursor aCursor = textCursor();
@@ -111,12 +137,14 @@ void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
                 m_lastItemSet=0;
             }
             append(">>");
+            moveCursor(QTextCursor::End);
         }break;
         case Qt::Key_Up:{
 
             QTextCursor aCursor = textCursor();
             QString lineText = aCursor.block().text();
-            if(lineText.size()==2){ // todo: make this better, check the case of multiline command
+            // if(lineText.size()==2) // todo: make sme cases when this is not done
+            {
                 if(m_commandsList.hasItem()){
                     if(!m_lastItemSet){
                         m_lastItem = m_commandsList.first();
@@ -124,11 +152,38 @@ void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
                     }
                     else{
                         // todo: remove last line (https://stackoverflow.com/questions/15326569/removing-last-line-from-qtextedit)
+                        aCursor.movePosition(QTextCursor::End);
+                        aCursor.select(QTextCursor::LineUnderCursor);
+                        aCursor.removeSelectedText();
+                        insertPlainText(">>");
                         if((++m_lastItem)==m_commandsList.lastPlus1()){
                             m_lastItem = m_commandsList.first();
                         }
                     }
-                    insertPlainText(*m_lastItem);
+                    insertPlainText((*m_lastItem).toString());
+                }
+            }
+
+        }break;
+        case Qt::Key_Down:{
+
+            QTextCursor aCursor = textCursor();
+            QString lineText = aCursor.block().text();
+            // if(lineText.size()==2) // todo: make sme cases when this is not done
+            {
+                //if(m_commandsList.hasItem())
+                {
+                    if(m_lastItemSet){
+                        aCursor.movePosition(QTextCursor::End);
+                        aCursor.select(QTextCursor::LineUnderCursor);
+                        aCursor.removeSelectedText();
+                        insertPlainText(">>");
+                        if((m_lastItem--)==m_commandsList.first()){
+                            m_lastItem = m_commandsList.lastPlus1();
+                            --m_lastItem;
+                        }
+                    }
+                    insertPlainText((*m_lastItem).toString());
                 }
             }
 
@@ -149,33 +204,45 @@ void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
 
 void emulator::RingList::AddNewToTheFront( const RingListType& a_new )
 {
-    size_t unSize = size();
+    size_t unSize = static_cast<size_t>(m_container.size());
 
-    if(unSize && (a_new == front())){
+    if(unSize && (a_new == m_container.front())){
         return;
     }
 
     if(unSize>=MAX_COMMANDS_SIZE){
-        pop_back();
+        m_container.pop_back();
     }
 
-    push_front(a_new);
+    m_container.push_front(a_new);
+}
+
+
+const BASE_LIST< RingListType >& emulator::RingList::list()const
+{
+    return m_container;
+}
+
+
+void emulator::RingList::SetList(const BASE_LIST< RingListType >& a_list)
+{
+    m_container = a_list;
 }
 
 
 bool emulator::RingList::hasItem()const
 {
-    return size() ? true : false;
+    return m_container.size() ? true : false;
 }
 
 
-::std::list< RingListType >::const_iterator emulator::RingList::first()const
+BASE_LIST< RingListType >::const_iterator emulator::RingList::first()const
 {
-    return begin();
+    return m_container.begin();
 }
 
 
-::std::list< RingListType >::const_iterator emulator::RingList::lastPlus1()const
+BASE_LIST< RingListType >::const_iterator emulator::RingList::lastPlus1()const
 {
-    return end();
+    return m_container.end();
 }
