@@ -173,20 +173,21 @@ emulator::Application::operator ::QSettings& ()
 }
 
 
-bool emulator::Application::RunCommand( QString& a_command )
+bool emulator::Application::RunCommand( QString& a_command2 )
 {
     bool bHandled = false;
+    QString aCommandTrimed = a_command2.trimmed();
 
-    qDebug() << "commandToRun: " << a_command;
+    qDebug() << "commandToRun: " << aCommandTrimed;
 
-    if(a_command=="exit"){
+    if(aCommandTrimed=="exit"){
         bHandled = true;
         QCoreApplication::quit();
     }
-    else if(a_command.startsWith("matlab")){
-        int nIndex1 = a_command.indexOf(QChar('('),6);
+    else if(aCommandTrimed.startsWith("matlab")){
+        int nIndex1 = aCommandTrimed.indexOf(QChar('('),6);
         if(++nIndex1>6){
-            QString::const_iterator strEnd = a_command.end();
+            QString::const_iterator strEnd = aCommandTrimed.end();
             QChar cLast = *strEnd;
             while( (cLast != ')') && (cLast != ' ') && (cLast != '\t') && (cLast != '(') ){
                 cLast = *(--strEnd);
@@ -195,8 +196,8 @@ bool emulator::Application::RunCommand( QString& a_command )
 #define INDX_TO_DISPLAY 2
                 ssize_t unReadFromError;
                 char vcOutBuffer[1024];
-                int nIndex2 = static_cast<int>(strEnd-a_command.begin());
-                QString matCommand = a_command.mid(nIndex1,(nIndex2-nIndex1));
+                int nIndex2 = static_cast<int>(strEnd-aCommandTrimed.begin());
+                QString matCommand = aCommandTrimed.mid(nIndex1,(nIndex2-nIndex1));
                 vcOutBuffer[INDX_TO_DISPLAY]=0;
                 CHECK_MATLAB_ENGINE_AND_DO(engOutputBuffer,vcOutBuffer,1023);
                 CHECK_MATLAB_ENGINE_AND_DO(engEvalString,matCommand.toStdString().c_str());
@@ -215,7 +216,7 @@ bool emulator::Application::RunCommand( QString& a_command )
             }
         }
     }
-    else if(a_command=="showmatlab"){
+    else if(aCommandTrimed=="showmatlab"){
         bool vis;
         int nReturn = engGetVisible(m_pEngine,&vis);
         qDebug()<<vis<<nReturn;
@@ -226,14 +227,18 @@ bool emulator::Application::RunCommand( QString& a_command )
         qDebug()<<vis<<nReturn;
         bHandled=true;
     }
-    else if(a_command=="hidematlab"){
+    else if(aCommandTrimed=="hidematlab"){
         CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,0);
         bHandled=true;
     }
     else{
-        int nIndex1 = a_command.indexOf(QChar('='),0);
+        bool bHasReturnArgs = false;
+        int nIndex1 = aCommandTrimed.indexOf(QChar('='),0);
         if(nIndex1>0){
-            //
+            QString retArgumetName=aCommandTrimed.left(nIndex1);
+            aCommandTrimed = aCommandTrimed.mid(nIndex1+1);
+            aCommandTrimed = aCommandTrimed.trimmed();
+            bHasReturnArgs = true;
         }
     }
 
