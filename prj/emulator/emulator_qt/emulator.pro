@@ -17,6 +17,9 @@ message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
 
 # include ($${PWD}/../../common/common_qt/sys_common.pri)
 include ($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_matrix_common.pri)
+include($${PWD}/../../common/common_qt/root_no_gui_common.pri)
+
+INCLUDEPATH += $${PWD}/../../../include
 
 QT += gui
 QT += core
@@ -37,10 +40,12 @@ SOURCES += \
     $${PWD}/../../../src/emulator/matlab_emulator_application.cpp       \
     $${PWD}/../../../src/emulator/matlab_emulator_mainwindow.cpp        \
     $${PWD}/../../../src/emulator/matlab_emulator_centralwidget.cpp     \
-    $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.cpp
+    $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.cpp     \
+    $${PWD}/../../../src/croot/daq_root_reader.cpp
 
 HEADERS += \
     $${PWD}/../../../src/emulator/matlab_emulator_application.hpp       \
     $${PWD}/../../../src/emulator/matlab_emulator_mainwindow.hpp        \
     $${PWD}/../../../src/emulator/matlab_emulator_centralwidget.hpp     \
-    $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.hpp
+    $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.hpp     \
+    $${PWD}/../../../include/daq_root_reader.hpp

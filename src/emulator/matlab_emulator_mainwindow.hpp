@@ -29,6 +29,10 @@ private slots:
     void ExitActionSlot();
 
 private:
+    void moveEvent(QMoveEvent *event);
+    void resizeEvent(QResizeEvent *event);
+
+private:
     CentralWidget   m_centralWidget;
 };
 

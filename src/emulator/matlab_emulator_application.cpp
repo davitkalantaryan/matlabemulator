@@ -8,6 +8,9 @@
 #include <iostream>
 #include <QFileInfo>
 #ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#define pipe(_pfds) _pipe((_pfds),256,O_BINARY)
 #else
 #include <unistd.h>
 #endif
@@ -23,7 +26,7 @@ using namespace matlab;
             Engine* pTmpEngine = m_pEngine; \
             m_pEngine = nullptr; \
             engClose(pTmpEngine);\
-            m_pEngine = engOpen(MATLAB_START_COMMAND); \
+            OpenOrReopenMatEngine(); \
             if(m_pEngine){ \
                 _function(__VA_ARGS__); \
             } \
@@ -35,12 +38,12 @@ using namespace matlab;
 
 void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext & a_ctx,const QString &a_message);
 
-emulator::Application::Application(int* a_pipe, int& a_argc, char** a_argv)
+emulator::Application::Application(int& a_argc, char** a_argv)
     :
       QApplication (a_argc,a_argv)
 {
-    m_errorPipes = a_pipe;
-    //setbuffer(stderr,m_vcErrorBuffer,1023);
+
+    m_vErrorPipes[0]=m_vErrorPipes[1]=0;
     //
     m_originalMessageeHandler = qInstallMessageHandler(&noMessageOutputStatic);
 
@@ -58,12 +61,8 @@ emulator::Application::Application(int* a_pipe, int& a_argc, char** a_argv)
 
     m_calcThread.start();
 
-    m_pEngine = engOpen("matlab");
-    //m_pEngine = engOpen(nullptr);
+    OpenOrReopenMatEngine();
 
-    //if(m_pEngine){
-    //    engSetVisible(m_pEngine,0);
-    //}
     CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,0);
 
     ::QObject::connect(&m_settingsUpdateTimer,&QTimer::timeout,this,[this](){
@@ -81,9 +80,45 @@ emulator::Application::~Application()
         engClose(m_pEngine);
     }
 
+    if(m_vErrorPipes[0]){
+        close(m_vErrorPipes[1]);
+        close(m_vErrorPipes[0]);
+    }
+
     delete m_pSettings;
 
     qInstallMessageHandler(m_originalMessageeHandler);
+}
+
+
+void emulator::Application::OpenOrReopenMatEngine()
+{
+    int stderrCopy;
+    if(!m_vErrorPipes[0]){
+        if(pipe(m_vErrorPipes)){
+            return;
+        }
+    }
+    stderrCopy = dup(STDERR_FILENO);
+    dup2(m_vErrorPipes[1],STDERR_FILENO);
+    m_pEngine = engOpen(MATLAB_START_COMMAND);
+    dup2(stderrCopy,STDERR_FILENO);
+    close(stderrCopy);
+}
+
+
+ssize_t emulator::Application::ReadMatlabErrorPipe(char* a_pBuffer, size_t a_bufferSize)
+{
+    ssize_t nReturn;
+    if(m_vErrorPipes[0]){
+        write(m_vErrorPipes[1]," ",1);
+        nReturn = (read(m_vErrorPipes[0],a_pBuffer,a_bufferSize)-1);
+    }
+    else{
+        nReturn = 0;
+    }
+
+    return nReturn;
 }
 
 
@@ -158,29 +193,24 @@ bool emulator::Application::RunCommand( QString& a_command )
             }
             if(cLast == ')'){
 #define INDX_TO_DISPLAY 2
-                char vcOutBuffr[1024];
+                ssize_t unReadFromError;
+                char vcOutBuffer[1024];
                 int nIndex2 = static_cast<int>(strEnd-a_command.begin());
                 QString matCommand = a_command.mid(nIndex1,(nIndex2-nIndex1));
-                //setbuffer(stderr,m_vcErrorBuffer,1023);
-                //vcOutBuffr[0]=0;vcOutBuffr[1]=0;vcOutBuffr[2]=0;vcOutBuffr[3]=0;
-                write(m_errorPipes[1]," ",1);
-                read(m_errorPipes[0],vcOutBuffr,255);
-                vcOutBuffr[INDX_TO_DISPLAY]=0;
-                CHECK_MATLAB_ENGINE_AND_DO(engOutputBuffer,vcOutBuffr,1023);
-                write(m_errorPipes[1]," ",1);
+                vcOutBuffer[INDX_TO_DISPLAY]=0;
+                CHECK_MATLAB_ENGINE_AND_DO(engOutputBuffer,vcOutBuffer,1023);
                 CHECK_MATLAB_ENGINE_AND_DO(engEvalString,matCommand.toStdString().c_str());
-                if(vcOutBuffr[INDX_TO_DISPLAY]){
-                    vcOutBuffr[INDX_TO_DISPLAY]='\n';
-                    emit MatlabOutputSignal(&vcOutBuffr[INDX_TO_DISPLAY]);
+                if(vcOutBuffer[INDX_TO_DISPLAY]){
+                    vcOutBuffer[INDX_TO_DISPLAY]='\n';
+                    emit MatlabOutputSignal(&vcOutBuffer[INDX_TO_DISPLAY]);
                 }
-                else{
-                    memset(vcOutBuffr,0,256);
-                    read(m_errorPipes[0],vcOutBuffr,255);
-                    if(vcOutBuffr[0]){
-                        //qWarning()<<vcOutBuffr;
-                        emit MatlabErrorOutputSignal(vcOutBuffr);
-                    }
+                unReadFromError = ReadMatlabErrorPipe(vcOutBuffer,1023);
+
+                if(unReadFromError>0){
+                    vcOutBuffer[unReadFromError]=0;
+                    emit MatlabErrorOutputSignal(vcOutBuffer);
                 }
+
                 bHandled=true;
             }
         }
@@ -199,6 +229,12 @@ bool emulator::Application::RunCommand( QString& a_command )
     else if(a_command=="hidematlab"){
         CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,0);
         bHandled=true;
+    }
+    else{
+        int nIndex1 = a_command.indexOf(QChar('='),0);
+        if(nIndex1>0){
+            //
+        }
     }
 
     return bHandled;

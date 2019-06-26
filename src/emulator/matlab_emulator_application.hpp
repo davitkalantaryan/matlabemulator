@@ -48,7 +48,7 @@ class Application : public QApplication
 {
     Q_OBJECT
 public:
-    Application(int* pPipe, int& argc, char** argv);
+    Application(int& argc, char** argv);
     ~Application() OVERRIDE ;
 
     bool RunCommand( QString& a_command );
@@ -64,6 +64,8 @@ signals:
 private:
     static void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
     void noMessageOutput(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
+    void OpenOrReopenMatEngine();
+    ssize_t  ReadMatlabErrorPipe(char* buffer, size_t bufferSize);
 
 private:
     CalcThread              m_calcThread;
@@ -75,13 +77,14 @@ private:
 
     QtMessageHandler        m_originalMessageeHandler;
     //char                    m_vcErrorBuffer[1024];
-    int*                    m_errorPipes;
+    int                     m_vErrorPipes[2];
     QTimer                  m_settingsUpdateTimer;
 };
 
 }} // namespace matlab { namespace  {
 
 #define ThisAppPtr  static_cast< ::matlab::emulator::Application* >(qApp)
+#define ThisApp     (*ThisAppPtr)
 
 
 #endif   // #ifndef MATLAB_EMULATOR_APPLICATION_HPP

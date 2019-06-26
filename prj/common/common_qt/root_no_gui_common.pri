@@ -26,7 +26,7 @@ optionsCpp11 = $$find(CONFIG, "cpp11")
 count(optionsCpp11, 1):QMAKE_CXXFLAGS += -std=c++0x
 message("ROOTCFLAGS=$$ROOTCFLAGS")
 
-LIBS += -L/doocs/develop/kalantar/programs/cpp/works/pitz-daq/sys/$$CODENAME/lib
+#LIBS += -L/doocs/develop/kalantar/programs/cpp/works/pitz-daq/sys/$$CODENAME/lib
 LIBS += $$system($$MYROOT_SYS_DIR/bin/root-config --libs)
 
 # this line is not needed for compilation but some
