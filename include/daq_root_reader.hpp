@@ -29,7 +29,10 @@ struct BranchOutputForUserInfo{
     data::type::Type            dataType;
 };
 
+int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_pInput, ::std::list< BranchOutputForUserInfo >* a_pOutput);
+
 }}
+
 
 
 #endif  // #ifndef PITZ_DAQ_DAQ_ROOT_READER_HPP

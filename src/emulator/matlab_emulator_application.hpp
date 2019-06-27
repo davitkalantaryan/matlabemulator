@@ -13,6 +13,8 @@
 #include <QSettings>
 #include <QDebug>
 #include <QTimer>
+#include <matrix.h>
+#include <QMap>
 
 #ifndef OVERRIDE
 #ifdef CPP11_USED
@@ -66,19 +68,21 @@ private:
     void noMessageOutput(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
     void OpenOrReopenMatEngine();
     ssize_t  ReadMatlabErrorPipe(char* buffer, size_t bufferSize);
+    mxArray*  GetMultipleBranchesFromFile(const QString& argumentsLine);
 
 private:
-    CalcThread              m_calcThread;
+    CalcThread                  m_calcThread;
 
-    QSettings*              m_pSettings;
-    Engine*                 m_pEngine;
-    uint64_t                m_isEngineVisible : 1;
-    uint64_t                m_bitwise64Reserved : 63;
+    QSettings*                  m_pSettings;
+    Engine*                     m_pEngine;
+    uint64_t                    m_isEngineVisible : 1;
+    uint64_t                    m_bitwise64Reserved : 63;
 
-    QtMessageHandler        m_originalMessageeHandler;
-    //char                    m_vcErrorBuffer[1024];
-    int                     m_vErrorPipes[2];
-    QTimer                  m_settingsUpdateTimer;
+    QtMessageHandler            m_originalMessageeHandler;
+    //char                        m_vcErrorBuffer[1024];
+    int                         m_vErrorPipes[2];
+    QTimer                      m_settingsUpdateTimer;
+    QMap< QString, mxArray* >   m_variablesMap;
 };
 
 }} // namespace matlab { namespace  {

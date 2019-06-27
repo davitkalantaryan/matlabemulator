@@ -14,6 +14,7 @@
 #else
 #include <unistd.h>
 #endif
+#include <daq_root_reader.hpp>
 
 using namespace matlab;
 
@@ -172,77 +173,142 @@ emulator::Application::operator ::QSettings& ()
     return *m_pSettings;
 }
 
+#define INDX_TO_DISPLAY 2
 
-bool emulator::Application::RunCommand( QString& a_command2 )
+
+bool emulator::Application::RunCommand( QString& a_command )
 {
     bool bHandled = false;
-    QString aCommandTrimed = a_command2.trimmed();
+    bool bHasReturnArg = false;
+    bool bHasInputArgs = false;
+    bool vis;
+    QString::const_iterator strEnd;
+    QChar cLast ;
+    QString retArgumetName;
+    QString coreCommand;
+    QString inputArgumentsLine;
+    QString aCommandWholeTrimed = a_command.trimmed();
+    int nIndexEq = aCommandWholeTrimed.indexOf(QChar('='),0);
+    int nIndexBr1 = aCommandWholeTrimed.indexOf(QChar('('),0);
+    int nIndexBr2;
+    int nReturn;
+    ssize_t unReadFromError;
+    char vcOutBuffer[1024];
 
-    qDebug() << "commandToRun: " << aCommandTrimed;
+    qDebug() << "commandToRun: " << aCommandWholeTrimed;
 
-    if(aCommandTrimed=="exit"){
+
+    if(  ((nIndexEq>0)&&(nIndexEq<nIndexBr1))||((nIndexEq>0)&&(nIndexBr1<0)) ){
+        retArgumetName=aCommandWholeTrimed.left(nIndexEq);
+        coreCommand = aCommandWholeTrimed.mid(nIndexEq+1);
+        coreCommand = coreCommand.trimmed();
+        bHasReturnArg = true;
+    }
+    else{
+        coreCommand = aCommandWholeTrimed;
+    }
+
+
+    if((++nIndexBr1)>0){
+        strEnd = coreCommand.end();
+        cLast = *strEnd;
+        while( (cLast != ')') && (cLast != ' ') && (cLast != '\t') && (cLast != '(') ){
+            cLast = *(--strEnd);
+        }
+
+        if(cLast != ')'){
+            return false;
+        }
+
+        nIndexBr2 = static_cast<int>(strEnd-coreCommand.begin());
+        bHasInputArgs = true;
+        inputArgumentsLine = coreCommand.mid(nIndexBr1,(nIndexBr2-nIndexBr1)).trimmed();
+        coreCommand = coreCommand.left(--nIndexBr1).trimmed();
+    }
+
+
+    if(coreCommand == "exit"){
         bHandled = true;
         QCoreApplication::quit();
     }
-    else if(aCommandTrimed.startsWith("matlab")){
-        int nIndex1 = aCommandTrimed.indexOf(QChar('('),6);
-        if(++nIndex1>6){
-            QString::const_iterator strEnd = aCommandTrimed.end();
-            QChar cLast = *strEnd;
-            while( (cLast != ')') && (cLast != ' ') && (cLast != '\t') && (cLast != '(') ){
-                cLast = *(--strEnd);
-            }
-            if(cLast == ')'){
-#define INDX_TO_DISPLAY 2
-                ssize_t unReadFromError;
-                char vcOutBuffer[1024];
-                int nIndex2 = static_cast<int>(strEnd-aCommandTrimed.begin());
-                QString matCommand = aCommandTrimed.mid(nIndex1,(nIndex2-nIndex1));
-                vcOutBuffer[INDX_TO_DISPLAY]=0;
-                CHECK_MATLAB_ENGINE_AND_DO(engOutputBuffer,vcOutBuffer,1023);
-                CHECK_MATLAB_ENGINE_AND_DO(engEvalString,matCommand.toStdString().c_str());
-                if(vcOutBuffer[INDX_TO_DISPLAY]){
-                    vcOutBuffer[INDX_TO_DISPLAY]='\n';
-                    emit MatlabOutputSignal(&vcOutBuffer[INDX_TO_DISPLAY]);
-                }
-                unReadFromError = ReadMatlabErrorPipe(vcOutBuffer,1023);
-
-                if(unReadFromError>0){
-                    vcOutBuffer[unReadFromError]=0;
-                    emit MatlabErrorOutputSignal(vcOutBuffer);
-                }
-
-                bHandled=true;
-            }
+    else if(coreCommand == "matlab"){
+        vcOutBuffer[INDX_TO_DISPLAY]=0;
+        CHECK_MATLAB_ENGINE_AND_DO(engOutputBuffer,vcOutBuffer,1023);
+        CHECK_MATLAB_ENGINE_AND_DO(engEvalString,inputArgumentsLine.toStdString().c_str());
+        if(vcOutBuffer[INDX_TO_DISPLAY]){
+            vcOutBuffer[INDX_TO_DISPLAY]='\n';
+            emit MatlabOutputSignal(&vcOutBuffer[INDX_TO_DISPLAY]);
         }
-    }
-    else if(aCommandTrimed=="showmatlab"){
-        bool vis;
-        int nReturn = engGetVisible(m_pEngine,&vis);
-        qDebug()<<vis<<nReturn;
-        //CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,1);
-        nReturn=engSetVisible(m_pEngine,0);
-        qDebug()<<vis<<nReturn;
-        nReturn=engGetVisible(m_pEngine,&vis);
-        qDebug()<<vis<<nReturn;
+        unReadFromError = ReadMatlabErrorPipe(vcOutBuffer,1023);
+
+        if(unReadFromError>0){
+            vcOutBuffer[unReadFromError]=0;
+            emit MatlabErrorOutputSignal(vcOutBuffer);
+        }
+
         bHandled=true;
     }
-    else if(aCommandTrimed=="hidematlab"){
+    else if(coreCommand=="showmatlab"){
+
+        if(m_pEngine){
+            nReturn = engGetVisible(m_pEngine,&vis);
+            qDebug()<<vis<<nReturn;
+            //CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,1);
+            nReturn=engSetVisible(m_pEngine,0);
+            qDebug()<<vis<<nReturn;
+            nReturn=engGetVisible(m_pEngine,&vis);
+            qDebug()<<vis<<nReturn;
+        }
+
+        bHandled=true;
+    }
+    else if(coreCommand=="hidematlab"){
         CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,0);
         bHandled=true;
     }
-    else{
-        bool bHasReturnArgs = false;
-        int nIndex1 = aCommandTrimed.indexOf(QChar('='),0);
-        if(nIndex1>0){
-            QString retArgumetName=aCommandTrimed.left(nIndex1);
-            aCommandTrimed = aCommandTrimed.mid(nIndex1+1);
-            aCommandTrimed = aCommandTrimed.trimmed();
-            bHasReturnArgs = true;
+    else if(coreCommand=="branches"){
+        if((!bHasInputArgs)||(!bHasReturnArg)){
+            return false;
+        }
+
+        mxArray* mxData = GetMultipleBranchesFromFile(inputArgumentsLine);
+        if(mxData){
+            m_variablesMap.insert(retArgumetName,mxData);
         }
     }
 
+//returnPoint:
     return bHandled;
+}
+
+
+mxArray*  emulator::Application::GetMultipleBranchesFromFile(const QString& a_argumentsLine)
+{
+    using namespace ::pitz::daq;
+    ::std::list< BranchUserInputInfo* > aInput;
+    ::std::list< BranchOutputForUserInfo* > aOutput;
+    int nIndex = a_argumentsLine.indexOf(QChar(','));
+    QString fileName;
+    QString branchName;
+    QString remainingLine;
+
+    if(nIndex<1){
+        return nullptr;
+    }
+
+    fileName = a_argumentsLine.left(nIndex).trimmed();
+    remainingLine = a_argumentsLine.mid(nIndex+1);
+
+    while(1){
+        nIndex = remainingLine.indexOf(QChar(','));
+        if(nIndex<0){
+            break;
+        }
+        branchName = a_argumentsLine.left(nIndex).trimmed();
+        remainingLine = remainingLine.mid(nIndex+1);
+    }
+
+    return nullptr;
 }
 
 
