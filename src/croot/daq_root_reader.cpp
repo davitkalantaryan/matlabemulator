@@ -54,7 +54,8 @@ int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< 
     nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,pInpBranchItemBegin,&aOutputIn,a_pOutput,
                                              [](void*,const data::memory::ForClient&){return true;},nullptr);
 
-    aOutputIn.splice(aOutputIn.begin(),aOutputIn.end(),*a_pOutput);
+    a_pOutput->splice(a_pOutput->end(),aOutputIn,aOutputIn.begin(),aOutputIn.end());
+    return nReturn;
 }
 
 }} // namespace pitz{ namespace daq{
@@ -151,7 +152,7 @@ static int GetMultipleBranchesFromFileStatic(
 
             if(!a_fpContinue(a_pClbkData,aMemory)){
                 pOutBranchItemTmp = pOutBranchItem++;
-                a_pOutputIn->splice(pOutBranchItemTmp,*a_pOutputOut);
+                a_pOutputOut->splice(a_pOutputOut->end(),*a_pOutputIn,pOutBranchItemTmp);
                 break;
             }
             pMemToAdd = new data::memory::ForClient(aMemory,(*pOutBranchItem));
