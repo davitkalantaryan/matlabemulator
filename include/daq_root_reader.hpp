@@ -5,15 +5,12 @@
 #include <list>
 #include <string>
 #include <stdint.h>
+#include <pitz/daq/data/memory/forclient.hpp>
 
 #define INPUT_PD
 #define OUTPUT_PD
 
-namespace pitz{ namespace daq{ namespace data{
 
-namespace type{enum Type{Error=-1,NoData=0,Int=1,Float=2,String=3,IIII_old=4,IFFF_old=5};}
-
-}}}
 
 namespace pitz{ namespace daq{
 
@@ -22,14 +19,12 @@ struct BranchUserInputInfo{
 };
 
 struct BranchOutputForUserInfo{
-    const BranchUserInputInfo*  userClbk;
-    const char*                 dataTypeFromRoot;
-    int64_t                     numberOfEntries OUTPUT_PD ;
-    int                         itemsCountPerEntry;
-    data::type::Type            dataType;
+    const BranchUserInputInfo*                  userClbk;
+    data::EntryInfoBase                         info;
+    ::std::list< data::memory::ForClient* >     data;
 };
 
-int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_pInput, ::std::list< BranchOutputForUserInfo >* a_pOutput);
+int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_pInput, ::std::list< BranchOutputForUserInfo* >* a_pOutput);
 
 }}
 

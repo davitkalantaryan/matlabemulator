@@ -16,36 +16,62 @@
 
 #define TMP_FILE_NAME       "tmp.root.file.root"
 
+
 using namespace pitz::daq;
 
-static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< BranchOutputForUserInfo >::iterator a_pOutBranchItem);
-static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName, ::std::list< BranchUserInputInfo >::const_iterator a_pInpBranchItem, ::std::list< BranchOutputForUserInfo >* a_pOutputIn, ::std::list< BranchOutputForUserInfo >* a_pOutputOut);
+typedef bool (*TypeContinue)(void* clbkData, const data::memory::ForClient&);
+
+static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< BranchOutputForUserInfo* >::iterator a_pOutBranchItem);
+static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName,
+                                              ::std::list< BranchUserInputInfo >::const_iterator a_pInpBranchItem,
+                                              ::std::list< BranchOutputForUserInfo* >* a_pOutputIn,
+                                              ::std::list< BranchOutputForUserInfo* >* a_pOutputOut,
+                                              TypeContinue a_fpContinue, void* a_pClbkData);
 
 namespace pitz{ namespace daq{
 
-int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo >* a_pOutput)
-{
-    ::std::list< BranchUserInputInfo >::const_iterator pInpBranchItem, pInpBranchItemBegin(a_Input.begin()), pInpBranchItemEnd(a_Input.end());
-    ::std::list< BranchOutputForUserInfo >::iterator pOutBranchItem;
-    ::std::list< BranchOutputForUserInfo > aOutputIn;
+//static bool ShallContinue(void* clbkData, const data::memory::ForClient&)
+//{
+//    //
+//}
 
-    aOutputIn.resize(a_Input.size());
-    for(pInpBranchItem = pInpBranchItemBegin, pOutBranchItem=aOutputIn.begin();pInpBranchItem!=pInpBranchItemEnd;++pInpBranchItem,++pOutBranchItem){
-        (*pOutBranchItem).userClbk = &(*pInpBranchItem);
+int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput)
+{
+    int nReturn;
+    ::std::list< BranchUserInputInfo >::const_iterator pInpBranchItem, pInpBranchItemBegin(a_Input.begin()), pInpBranchItemEnd(a_Input.end());
+    //::std::list< BranchOutputForUserInfo >::iterator pOutBranchItem;
+    ::std::list< BranchOutputForUserInfo* > aOutputIn;
+    BranchOutputForUserInfo* pOutData;
+
+    //aOutputIn.resize(a_Input.size());
+    for(pInpBranchItem = pInpBranchItemBegin;pInpBranchItem!=pInpBranchItemEnd;++pInpBranchItem){
+        //(*pOutBranchItem).userClbk = &(*pInpBranchItem);
+        pOutData = new BranchOutputForUserInfo;
+        pOutData->userClbk = &(*pInpBranchItem);
+        aOutputIn.push_back(pOutData);
     }
 
-    return GetMultipleBranchesFromFileStatic(a_rootFileName,pInpBranchItemBegin,&aOutputIn,a_pOutput);
+    nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,pInpBranchItemBegin,&aOutputIn,a_pOutput,
+                                             [](void*,const data::memory::ForClient&){return true;},nullptr);
+
+    aOutputIn.splice(aOutputIn.begin(),aOutputIn.end(),*a_pOutput);
 }
 
 }} // namespace pitz{ namespace daq{
 
-static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName, ::std::list< BranchUserInputInfo >::const_iterator a_pInpBranchItem, ::std::list< BranchOutputForUserInfo >* a_pOutputIn, ::std::list< BranchOutputForUserInfo >* a_pOutputOut)
+
+static int GetMultipleBranchesFromFileStatic(
+        const char* a_rootFileName, ::std::list< BranchUserInputInfo >::const_iterator a_pInpBranchItem,
+        ::std::list< BranchOutputForUserInfo* >* a_pOutputIn,
+        ::std::list< BranchOutputForUserInfo* >* a_pOutputOut,
+        TypeContinue a_fpContinue, void* a_pClbkData)
 {
     const char* cpcFileName(a_rootFileName);
     TBranch *pBranch;
     TTree* pTree;
     TFile* tFile  ;
-    int nIndexEntry;
+    int64_t nIndexEntry;
+    int64_t numberOfEntriesInTheFile;
     int nReturn(-1);
     int nDeleteFile = 0;
     //daq::callbackN::retType::Type clbkReturn(daq::callbackN::retType::Continue);
@@ -53,8 +79,9 @@ static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName, ::std:
     //const char* cpcDataType;
     //::common::listN::ListItem<TBranchItemPrivate*> *pBranchItemNext, *pBranchItem;
     //memory::Base mem;
-    ::std::list< BranchOutputForUserInfo >::iterator pOutBranchItem, pOutBranchItemEnd;
-    bool bStopped = false;
+    ::std::list< BranchOutputForUserInfo* >::iterator pOutBranchItem, pOutBranchItemEnd, pOutBranchItemTmp;
+    data::memory::ForClient aMemory(data::EntryInfoBase(),nullptr);
+    data::memory::ForClient* pMemToAdd;
 
     //if(this->m_clbkType != callbackN::Type::MultiEntries)
     //{
@@ -96,7 +123,6 @@ static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName, ::std:
     pOutBranchItemEnd = a_pOutputIn->end();
     for(pOutBranchItem=a_pOutputIn->begin();pOutBranchItem!=pOutBranchItemEnd;++a_pInpBranchItem,++pOutBranchItem){
 
-
         pTree = static_cast<TTree *>(tFile->Get((*a_pInpBranchItem).branchName.c_str()));
         if(!pTree){
             MAKE_REPORT_THIS(2,"Tree \"%s\" is not found", (*a_pInpBranchItem).branchName.c_str());
@@ -109,57 +135,36 @@ static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName, ::std:
             goto nextBranchItem;
         }
 
-
-        // todo: do we need line below, or we should find this in the end
-        (*pOutBranchItem).numberOfEntries = pBranch->GetEntries();
-        if( !GetDataTypeAndCountStatic(pBranch,pOutBranchItem) ){
+        numberOfEntriesInTheFile = pBranch->GetEntries();
+        if( (numberOfEntriesInTheFile<1) || (!GetDataTypeAndCountStatic(pBranch,pOutBranchItem)) ){
             goto nextBranchItem;
         }
-        //clbkReturn=(*this->clbk.m_multiEntries.infoGetter)(m_clbkData,pBranchItem->data->index,aBrInfo);
-        //if(clbkReturn==daq::callbackN::retType::StopForCurrent){
-        //    pBranchRaw = pBranchItem->data;
-        //    a_pBranches->RemoveData(pBranchItem);
-        //    delete pBranchRaw;
-        //    goto nextBranchItem;
-        //}
-        //else if(clbkReturn==daq::callbackN::retType::Stop){bStopped=true;nReturn=0;goto returnPoint;}
-
-        //mem.setBranchInfo(aBrInfo);
-        //pBranch->SetAddress(mem.rawBuffer());
+        aMemory.SetBranchInfo((*pOutBranchItem)->info);
 
         MAKE_REPORT_THIS(2,"nNumOfEntries[%s] = %d, dataType:%s, itemsCount=%d",
                          (*pInpBranchItem)->branchName.c_str(), (*pOutBranchItem).numberOfEntries,
                          cpcDataType,aBrInfo.itemsCount);
 
-        for(nIndexEntry=0;nIndexEntry<(*pOutBranchItem).numberOfEntries;++nIndexEntry){
+        for(nIndexEntry=0;nIndexEntry<numberOfEntriesInTheFile;++nIndexEntry){
+            pBranch->SetAddress(aMemory.rawBuffer());
             pBranch->GetEntry(nIndexEntry);
-            //clbkReturn=(*this->clbk.m_multiEntries.readEntry)(m_clbkData,pBranchItem->data->index,mem);
-            //if(clbkReturn==daq::callbackN::retType::StopForCurrent){
-            //    pBranchRaw = pBranchItem->data;
-            //    a_pBranches->RemoveData(pBranchItem);
-            //    delete pBranchRaw;
-            //    goto nextBranchItem;
-            //}
-            //else if(clbkReturn==daq::callbackN::retType::Stop){bStopped=true;nReturn=0;goto returnPoint;}
-            ////else {if(pFirstItem==pBranchItem){pFirstItem=NULL;}}
+
+            if(!a_fpContinue(a_pClbkData,aMemory)){
+                pOutBranchItemTmp = pOutBranchItem++;
+                a_pOutputIn->splice(pOutBranchItemTmp,*a_pOutputOut);
+                break;
+            }
+            pMemToAdd = new data::memory::ForClient(aMemory,(*pOutBranchItem));
+            (*pOutBranchItem)->data.push_back(pMemToAdd);
+
         }
 
 nextBranchItem:
-        continue;
+        ++pOutBranchItem;
     }
 
     nReturn = 0;
 returnPoint:
-    if(bStopped){
-        //while(a_pBranches->first()){
-        //    pBranchRaw = a_pBranches->first()->data;
-        //    a_pBranches->RemoveData(a_pBranches->first());
-        //    delete pBranchRaw;
-        //}
-    }
-    else{
-        //if(pFirstItem){ a_pBranches->RemoveData(pFirstItem);}
-    }
 
     if(tFile){
         if(tFile->IsOpen()){tFile->Close();}
@@ -176,7 +181,7 @@ returnPoint:
 }
 
 
-static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< BranchOutputForUserInfo >::iterator a_pOutBranchItem)
+static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< BranchOutputForUserInfo* >::iterator a_pOutBranchItem)
 {
     TLeaf* pLeaf ;
     const char* cpcTypeName="";
@@ -194,36 +199,36 @@ static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< Bra
     if(pLeaf){goto finalizingInfo;}
 
     pLeaf = a_pBranch->GetLeaf("char_array");
-    if(pLeaf){cpcTypeName = "string";(*a_pOutBranchItem).dataType = data::type::String;goto finalizeCharArrays;}
+    if(pLeaf){cpcTypeName = "string";(*a_pOutBranchItem)->info.dataType = data::type::String;goto finalizeCharArrays;}
 
     pLeaf = a_pBranch->GetLeaf("IIII_array");
-    if(pLeaf){cpcTypeName = "IIII_old";(*a_pOutBranchItem).dataType = data::type::IIII_old;goto finalizeCharArrays;}
+    if(pLeaf){cpcTypeName = "IIII_old";(*a_pOutBranchItem)->info.dataType = data::type::IIII_old;goto finalizeCharArrays;}
 
     pLeaf = a_pBranch->GetLeaf("IFFF_array");
-    if(pLeaf){cpcTypeName = "IFFF_old";(*a_pOutBranchItem).dataType = data::type::IFFF_old;goto finalizeCharArrays;}
+    if(pLeaf){cpcTypeName = "IFFF_old";(*a_pOutBranchItem)->info.dataType = data::type::IFFF_old;goto finalizeCharArrays;}
 
-    (*a_pOutBranchItem).dataType = data::type::Error;
-    (*a_pOutBranchItem).itemsCountPerEntry = 0;
-    (*a_pOutBranchItem).dataTypeFromRoot = "unknown";
+    (*a_pOutBranchItem)->info.dataType = data::type::Error;
+    (*a_pOutBranchItem)->info.itemsCountPerEntry = 0;
+    (*a_pOutBranchItem)->info.dataTypeFromRoot = "unknown";
     return false;
 
 finalizingInfo:
     cpcTypeName = pLeaf->GetTypeName();
 
     if(strcmp(cpcTypeName,"Float_t")==0){
-        (*a_pOutBranchItem).dataType = data::type::Float;
+        (*a_pOutBranchItem)->info.dataType = data::type::Float;
     }
     else if(strcmp(cpcTypeName,"Int_t")==0){
-        (*a_pOutBranchItem).dataType = data::type::Int;
+        (*a_pOutBranchItem)->info.dataType = data::type::Int;
     }
     else{
-        (*a_pOutBranchItem).dataType = data::type::Error;
+        (*a_pOutBranchItem)->info.dataType = data::type::Error;
     }
 
-    (*a_pOutBranchItem).itemsCountPerEntry =  pLeaf->GetLen();
-    (*a_pOutBranchItem).dataTypeFromRoot = cpcTypeName;
+    (*a_pOutBranchItem)->info.itemsCountPerEntry =  pLeaf->GetLen();
+    (*a_pOutBranchItem)->info.dataTypeFromRoot = cpcTypeName;
 
 finalizeCharArrays:
-    (*a_pOutBranchItem).itemsCountPerEntry =  1;
+    (*a_pOutBranchItem)->info.itemsCountPerEntry =  1;
     return true;
 }

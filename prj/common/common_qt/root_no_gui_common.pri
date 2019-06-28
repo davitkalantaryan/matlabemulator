@@ -17,6 +17,8 @@ equals($$MYROOT_SYS_DIR,"") {
     message("!!! MYROOT_SYS_DIR comes from environment: $$MYROOT_SYS_DIR")
 }
 
+DEFINES += R__NULLPTR
+DEFINES += ROOT_APP
 
 ROOTCFLAGS = $$system($$MYROOT_SYS_DIR/bin/root-config --cflags)
 
