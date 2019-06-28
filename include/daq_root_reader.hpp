@@ -15,6 +15,7 @@
 namespace pitz{ namespace daq{
 
 struct BranchUserInputInfo{
+    BranchUserInputInfo(const ::std::string& a_branchName):branchName(a_branchName){}
     ::std::string   branchName      INPUT_PD ;
 };
 
@@ -24,6 +25,8 @@ struct BranchOutputForUserInfo{
     ::std::list< data::memory::ForClient* >     data;
 };
 
+int Initialize();
+void Cleanup();
 int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_pInput, ::std::list< BranchOutputForUserInfo* >* a_pOutput);
 
 }}

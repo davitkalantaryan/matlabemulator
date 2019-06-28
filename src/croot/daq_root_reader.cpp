@@ -35,6 +35,23 @@ namespace pitz{ namespace daq{
 //    //
 //}
 
+int Initialize()
+{
+    gROOT->GetPluginManager()->AddHandler("TVirtualStreamerInfo",
+                                          "*",
+                                          "TStreamerInfo",
+                                          "RIO",
+                                          "TStreamerInfo()");
+
+    return 0;
+}
+
+
+void Cleanup()
+{
+    //
+}
+
 int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput)
 {
     int nReturn;

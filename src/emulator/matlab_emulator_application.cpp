@@ -66,6 +66,8 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
     CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,0);
 
+    pitz::daq::Initialize();
+
     ::QObject::connect(&m_settingsUpdateTimer,&QTimer::timeout,this,[this](){
         emit UpdateSettingsSignal(*m_pSettings);
     });
@@ -76,6 +78,8 @@ emulator::Application::~Application()
 {
     m_calcThread.quit();
     m_calcThread.wait();
+
+    pitz::daq::Cleanup();
 
     if(m_pEngine){
         engClose(m_pEngine);
@@ -285,7 +289,7 @@ bool emulator::Application::RunCommand( QString& a_command )
 mxArray*  emulator::Application::GetMultipleBranchesFromFile(const QString& a_argumentsLine)
 {
     using namespace ::pitz::daq;
-    ::std::list< BranchUserInputInfo* > aInput;
+    ::std::list< BranchUserInputInfo > aInput;
     ::std::list< BranchOutputForUserInfo* > aOutput;
     int nIndex = a_argumentsLine.indexOf(QChar(','));
     QString fileName;
@@ -306,6 +310,13 @@ mxArray*  emulator::Application::GetMultipleBranchesFromFile(const QString& a_ar
         }
         branchName = a_argumentsLine.left(nIndex).trimmed();
         remainingLine = remainingLine.mid(nIndex+1);
+        aInput.push_back(branchName.toStdString());
+    }
+
+    aInput.push_back(remainingLine.toStdString());
+
+    if( ::pitz::daq::GetMultipleBranchesFromFile(fileName.toStdString().c_str(),aInput,&aOutput) ){
+        return nullptr;
     }
 
     return nullptr;
