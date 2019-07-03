@@ -137,6 +137,17 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             a_this->m_variablesMap.insert(a_retArgumetName,mxData);
         }
     });
+    m_functionsMap.insert("getdata2",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+        if((!a_inputArgumentsLine.size())||(!a_retArgumetName.size())){
+            // make error report
+            return;
+        }
+
+        mxArray* mxData = a_this->GetMultipleBranchesFromFileCls2(a_inputArgumentsLine);
+        if(mxData){
+            a_this->m_variablesMap.insert(a_retArgumetName,mxData);
+        }
+    });
     m_functionsMap.insert("help",[](Application* a_this,const QString&,const QString&){
         auto keys = a_this->m_functionsMap.keys();
         for( auto aKey : keys ){
@@ -304,6 +315,44 @@ bool emulator::Application::RunCommand( QString& a_command )
 static mxArray* DataToMatlab( const ::std::list< pitz::daq::BranchOutputForUserInfo* >& a_data );
 
 mxArray*  emulator::Application::GetMultipleBranchesFromFileCls(const QString& a_argumentsLine)
+{
+    using namespace ::pitz::daq;
+    ::std::list< BranchUserInputInfo > aInput;
+    ::std::list< BranchOutputForUserInfo* > aOutput;
+    int nIndex = a_argumentsLine.indexOf(QChar(','));
+    QString fileName;
+    QString branchName;
+    QString remainingLine;
+
+    if(nIndex<1){
+        return nullptr;
+    }
+
+    fileName = a_argumentsLine.left(nIndex).trimmed();
+    remainingLine = a_argumentsLine.mid(nIndex+1);
+
+    while(1){
+        nIndex = remainingLine.indexOf(QChar(','));
+        if(nIndex<0){
+            break;
+        }
+        branchName = a_argumentsLine.left(nIndex).trimmed();
+        remainingLine = remainingLine.mid(nIndex+1);
+        aInput.push_back(branchName.toStdString());
+    }
+
+    aInput.push_back(remainingLine.toStdString());
+
+    if( ::pitz::daq::GetMultipleBranchesFromFile(fileName.toStdString().c_str(),aInput,&aOutput) ){
+        return nullptr;
+    }
+
+    return DataToMatlab(aOutput);
+
+}
+
+
+mxArray*  emulator::Application::GetMultipleBranchesFromFileCls2(const QString& a_argumentsLine)
 {
     using namespace ::pitz::daq;
     ::std::list< BranchUserInputInfo > aInput;

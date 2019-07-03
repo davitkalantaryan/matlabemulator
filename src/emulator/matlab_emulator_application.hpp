@@ -72,6 +72,7 @@ private:
     void OpenOrReopenMatEngine();
     ssize_t  ReadMatlabErrorPipe(char* buffer, size_t bufferSize);
     mxArray*  GetMultipleBranchesFromFileCls(const QString& argumentsLine);
+    mxArray*  GetMultipleBranchesFromFileCls2(const QString& a_argumentsLine);
 
 private:
     CalcThread                  m_calcThread;

@@ -19,7 +19,9 @@
 
 using namespace pitz::daq;
 
-typedef bool (*TypeContinue)(void* clbkData, const data::memory::ForClient&);
+namespace callbackReturn { enum Type{Collect,SkipThisEntry,StopThisBranch,StopForAll,Next}; }
+
+typedef callbackReturn::Type (*TypeContinue)(void* clbkData, const data::memory::ForClient&);
 
 static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< BranchOutputForUserInfo* >::iterator a_pOutBranchItem);
 static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName,
@@ -74,6 +76,30 @@ int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< 
     return nReturn;
 }
 
+
+int GetMultipleBranchesForTime( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput)
+{
+    int nReturn;
+    ::std::list< BranchUserInputInfo >::const_iterator pInpBranchItem(a_Input.begin()), pInpBranchItemEnd(a_Input.end());
+    //::std::list< BranchOutputForUserInfo >::iterator pOutBranchItem;
+    ::std::list< BranchOutputForUserInfo* > aOutputIn;
+    BranchOutputForUserInfo* pOutData;
+
+    //aOutputIn.resize(a_Input.size());
+    for(;pInpBranchItem!=pInpBranchItemEnd;++pInpBranchItem){
+        //(*pOutBranchItem).userClbk = &(*pInpBranchItem);
+        pOutData = new BranchOutputForUserInfo;
+        pOutData->userClbk = &(*pInpBranchItem);
+        aOutputIn.push_back(pOutData);
+    }
+
+    nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,&aOutputIn,a_pOutput,
+                                             [](void*,const data::memory::ForClient&){return callbackReturn::Collect;},nullptr);
+
+    a_pOutput->splice(a_pOutput->end(),aOutputIn,aOutputIn.begin(),aOutputIn.end());
+    return nReturn;
+}
+
 }} // namespace pitz{ namespace daq{
 
 
@@ -100,6 +126,8 @@ static int GetMultipleBranchesFromFileStatic(
     ::std::list< BranchOutputForUserInfo* >::iterator pOutBranchItem, pOutBranchItemEnd, pOutBranchItemTmp;
     data::memory::ForClient aMemory(data::EntryInfoBase(),nullptr);
     data::memory::ForClient* pMemToAdd;
+    callbackReturn::Type aClbkReturn;
+    bool bWork;
 
     //if(this->m_clbkType != callbackN::Type::MultiEntries)
     //{
@@ -165,17 +193,29 @@ static int GetMultipleBranchesFromFileStatic(
                          cpcDaqEntryName, (*pOutBranchItem).numberOfEntries,
                          cpcDataType,aBrInfo.itemsCount);
 
-        for(nIndexEntry=0;nIndexEntry<numberOfEntriesInTheFile;++nIndexEntry){
+        for(nIndexEntry=0,bWork=true;(nIndexEntry<numberOfEntriesInTheFile)&&bWork;++nIndexEntry){
             pBranch->SetAddress(aMemory.rawBuffer());
             pBranch->GetEntry(nIndexEntry);
 
-            if(!a_fpContinue(a_pClbkData,aMemory)){
-                pOutBranchItemTmp = pOutBranchItem++;
+            // namespace callbackReturn { enum Type{Collect,SkipThisEntry,StopThisBranch,StopForAll}; }
+            aClbkReturn = a_fpContinue(a_pClbkData,aMemory);
+            switch(aClbkReturn){
+            case callbackReturn::Collect:
+                pMemToAdd = new data::memory::ForClient(aMemory,(*pOutBranchItem));
+                (*pOutBranchItem)->data.push_back(pMemToAdd);
+                break;
+            case callbackReturn::SkipThisEntry:
+                continue;
+            case callbackReturn::StopThisBranch:
                 a_pOutputOut->splice(a_pOutputOut->end(),*a_pOutputIn,pOutBranchItemTmp);
+                bWork = false;
+                break;
+            case callbackReturn::StopForAll:
+                nReturn = 0;
+                goto returnPoint;
+            default:
                 break;
             }
-            pMemToAdd = new data::memory::ForClient(aMemory,(*pOutBranchItem));
-            (*pOutBranchItem)->data.push_back(pMemToAdd);
 
         }
 
