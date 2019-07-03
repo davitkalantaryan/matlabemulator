@@ -3,6 +3,7 @@
 #define PITZ_DAQ_DAQ_ROOT_READER_HPP
 
 #include <list>
+#include <vector>
 #include <string>
 #include <stdint.h>
 #include <pitz/daq/data/memory/forclient.hpp>
@@ -22,12 +23,12 @@ struct BranchUserInputInfo{
 struct BranchOutputForUserInfo{
     const BranchUserInputInfo*                  userClbk;
     data::EntryInfoBase                         info;
-    ::std::list< data::memory::ForClient* >     data;
+    ::std::vector< data::memory::ForClient* >   data;
 };
 
-int Initialize();
-void Cleanup();
-int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_pInput, ::std::list< BranchOutputForUserInfo* >* a_pOutput);
+int  RootInitialize();
+void RootCleanup();
+int  GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_pInput, ::std::list< BranchOutputForUserInfo* >* a_pOutput);
 
 }}
 

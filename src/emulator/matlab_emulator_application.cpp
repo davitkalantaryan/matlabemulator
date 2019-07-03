@@ -16,26 +16,38 @@
 #endif
 #include <daq_root_reader.hpp>
 
+#ifndef HANDLE_MEM_DEF
+#define HANDLE_MEM_DEF(_memory,...)
+#endif
+
 using namespace matlab;
 
 #define MATLAB_START_COMMAND    nullptr
 
-#define CHECK_MATLAB_ENGINE_AND_DO_RAW(_function,...)   \
-    if(m_pEngine){ \
+#define CHECK_MATLAB_ENGINE_AND_DO_CNT_RAW(_context,_function,...)   \
+    if((_context)->m_pEngine){ \
         int nReturn=_function(__VA_ARGS__); \
         if(nReturn){ \
-            Engine* pTmpEngine = m_pEngine; \
-            m_pEngine = nullptr; \
+            Engine* pTmpEngine = (_context)->m_pEngine; \
+            (_context)->m_pEngine = nullptr; \
             engClose(pTmpEngine);\
-            OpenOrReopenMatEngine(); \
-            if(m_pEngine){ \
+            (_context)->OpenOrReopenMatEngine(); \
+            if((_context)->m_pEngine){ \
                 _function(__VA_ARGS__); \
             } \
         } \
     }
 
+#define CHECK_MATLAB_ENGINE_AND_DO_RAW(_function,...)   CHECK_MATLAB_ENGINE_AND_DO_CNT_RAW(this,_function,__VA_ARGS__)
+#define CHECK_MATLAB_ENGINE_AND_DO_RAW_LAMBDA(_function,...)   CHECK_MATLAB_ENGINE_AND_DO_CNT_RAW(a_this,_function,__VA_ARGS__)
+
 #define CHECK_MATLAB_ENGINE_AND_DO(_function,...)   CHECK_MATLAB_ENGINE_AND_DO_RAW(_function,m_pEngine,__VA_ARGS__)
 #define CHECK_MATLAB_ENGINE_AND_DO_NO_ARGS(_function)   CHECK_MATLAB_ENGINE_AND_DO_RAW(_function,m_pEngine)
+
+#define CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(_function,...)   CHECK_MATLAB_ENGINE_AND_DO_RAW_LAMBDA(_function,a_this->m_pEngine,__VA_ARGS__)
+#define CHECK_MATLAB_ENGINE_AND_DO_NO_ARGS_LAMBDA(_function)   CHECK_MATLAB_ENGINE_AND_DO_RAW_LAMBDA(_function,a_this->m_pEngine)
+
+#define INDX_TO_DISPLAY 2
 
 void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext & a_ctx,const QString &a_message);
 
@@ -66,10 +78,70 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
     CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,0);
 
-    pitz::daq::Initialize();
+    pitz::daq::RootInitialize();
 
     ::QObject::connect(&m_settingsUpdateTimer,&QTimer::timeout,this,[this](){
         emit UpdateSettingsSignal(*m_pSettings);
+    });
+
+    //auto func = [=](const QString&)->void {};
+    ////auto aSignal = &Application::MatlabOutputSignal;
+    //void (Application::*aSignal)(const QString&) = &Application::MatlabOutputSignal;
+    ////emit aSignal("Hi");
+    //connect(this,"Hi",this,"Huy");
+    //m_functionsMap.insert("exit",&Application::MatlabOutputSignal);
+    //m_functionsMap.insert("exit",&Application::RunCommand2);
+
+    m_functionsMap.insert("exit",[](Application*,const QString&,const QString&)->void{QCoreApplication::quit();});
+    m_functionsMap.insert("matlab",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+        char vcOutBuffer[1024];
+        ssize_t unReadFromError;
+
+        vcOutBuffer[INDX_TO_DISPLAY]=0;
+
+        CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engOutputBuffer,vcOutBuffer,1023);
+        CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engEvalString,a_inputArgumentsLine.toStdString().c_str());
+        if(vcOutBuffer[INDX_TO_DISPLAY]){
+            vcOutBuffer[INDX_TO_DISPLAY]='\n';
+            emit a_this->MatlabOutputSignal(&vcOutBuffer[INDX_TO_DISPLAY]);
+        }
+        unReadFromError = a_this->ReadMatlabErrorPipe(vcOutBuffer,1023);
+
+        if(unReadFromError>0){
+            vcOutBuffer[unReadFromError]=0;
+            emit a_this->MatlabErrorOutputSignal(vcOutBuffer);
+        }
+
+    });
+    m_functionsMap.insert("showmatlab",[](Application* a_this,const QString&,const QString&){
+        // nReturn = engGetVisible(m_pEngine,&vis);
+        CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engSetVisible,true);
+    });
+    m_functionsMap.insert("hidematlab",[](Application* a_this,const QString&,const QString&){
+        CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engSetVisible,false);
+    });
+    m_functionsMap.insert("list",[](Application* a_this,const QString&,const QString&){
+        auto keys = a_this->m_variablesMap.keys();
+        for( auto aKey : keys ){
+            emit a_this->MatlabOutputSignal(QString("\n")+aKey);
+        }
+    });
+    m_functionsMap.insert("getdata1",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+        if((!a_inputArgumentsLine.size())||(!a_retArgumetName.size())){
+            // make error report
+            return;
+        }
+
+        mxArray* mxData = a_this->GetMultipleBranchesFromFileCls(a_inputArgumentsLine);
+        if(mxData){
+            a_this->m_variablesMap.insert(a_retArgumetName,mxData);
+        }
+    });
+    m_functionsMap.insert("help",[](Application* a_this,const QString&,const QString&){
+        auto keys = a_this->m_functionsMap.keys();
+        for( auto aKey : keys ){
+            emit a_this->MatlabOutputSignal(QString("\n")+aKey);
+        }
     });
 }
 
@@ -79,7 +151,7 @@ emulator::Application::~Application()
     m_calcThread.quit();
     m_calcThread.wait();
 
-    pitz::daq::Cleanup();
+    pitz::daq::RootCleanup();
 
     if(m_pEngine){
         engClose(m_pEngine);
@@ -177,15 +249,10 @@ emulator::Application::operator ::QSettings& ()
     return *m_pSettings;
 }
 
-#define INDX_TO_DISPLAY 2
 
 
 bool emulator::Application::RunCommand( QString& a_command )
 {
-    bool bHandled = false;
-    bool bHasReturnArg = false;
-    bool bHasInputArgs = false;
-    bool vis;
     QString::const_iterator strEnd;
     QChar cLast ;
     QString retArgumetName;
@@ -195,9 +262,6 @@ bool emulator::Application::RunCommand( QString& a_command )
     int nIndexEq = aCommandWholeTrimed.indexOf(QChar('='),0);
     int nIndexBr1 = aCommandWholeTrimed.indexOf(QChar('('),0);
     int nIndexBr2;
-    int nReturn;
-    ssize_t unReadFromError;
-    char vcOutBuffer[1024];
 
     qDebug() << "commandToRun: " << aCommandWholeTrimed;
 
@@ -206,12 +270,11 @@ bool emulator::Application::RunCommand( QString& a_command )
         retArgumetName=aCommandWholeTrimed.left(nIndexEq);
         coreCommand = aCommandWholeTrimed.mid(nIndexEq+1);
         coreCommand = coreCommand.trimmed();
-        bHasReturnArg = true;
+        nIndexBr1 = coreCommand.indexOf(QChar('('),0); // todo: make it faster
     }
     else{
         coreCommand = aCommandWholeTrimed;
     }
-
 
     if((++nIndexBr1)>0){
         strEnd = coreCommand.end();
@@ -225,68 +288,22 @@ bool emulator::Application::RunCommand( QString& a_command )
         }
 
         nIndexBr2 = static_cast<int>(strEnd-coreCommand.begin());
-        bHasInputArgs = true;
         inputArgumentsLine = coreCommand.mid(nIndexBr1,(nIndexBr2-nIndexBr1)).trimmed();
         coreCommand = coreCommand.left(--nIndexBr1).trimmed();
     }
 
 
-    if(coreCommand == "exit"){
-        bHandled = true;
-        QCoreApplication::quit();
-    }
-    else if(coreCommand == "matlab"){
-        vcOutBuffer[INDX_TO_DISPLAY]=0;
-        CHECK_MATLAB_ENGINE_AND_DO(engOutputBuffer,vcOutBuffer,1023);
-        CHECK_MATLAB_ENGINE_AND_DO(engEvalString,inputArgumentsLine.toStdString().c_str());
-        if(vcOutBuffer[INDX_TO_DISPLAY]){
-            vcOutBuffer[INDX_TO_DISPLAY]='\n';
-            emit MatlabOutputSignal(&vcOutBuffer[INDX_TO_DISPLAY]);
-        }
-        unReadFromError = ReadMatlabErrorPipe(vcOutBuffer,1023);
-
-        if(unReadFromError>0){
-            vcOutBuffer[unReadFromError]=0;
-            emit MatlabErrorOutputSignal(vcOutBuffer);
-        }
-
-        bHandled=true;
-    }
-    else if(coreCommand=="showmatlab"){
-
-        if(m_pEngine){
-            nReturn = engGetVisible(m_pEngine,&vis);
-            qDebug()<<vis<<nReturn;
-            //CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,1);
-            nReturn=engSetVisible(m_pEngine,0);
-            qDebug()<<vis<<nReturn;
-            nReturn=engGetVisible(m_pEngine,&vis);
-            qDebug()<<vis<<nReturn;
-        }
-
-        bHandled=true;
-    }
-    else if(coreCommand=="hidematlab"){
-        CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,0);
-        bHandled=true;
-    }
-    else if(coreCommand=="branches"){
-        if((!bHasInputArgs)||(!bHasReturnArg)){
-            return false;
-        }
-
-        mxArray* mxData = GetMultipleBranchesFromFile(inputArgumentsLine);
-        if(mxData){
-            m_variablesMap.insert(retArgumetName,mxData);
-        }
+    if(m_functionsMap.contains(coreCommand)){
+        (*m_functionsMap[coreCommand])(this,inputArgumentsLine,retArgumetName);
+        return true;
     }
 
-//returnPoint:
-    return bHandled;
+    return false;
 }
 
+static mxArray* DataToMatlab( const ::std::list< pitz::daq::BranchOutputForUserInfo* >& a_data );
 
-mxArray*  emulator::Application::GetMultipleBranchesFromFile(const QString& a_argumentsLine)
+mxArray*  emulator::Application::GetMultipleBranchesFromFileCls(const QString& a_argumentsLine)
 {
     using namespace ::pitz::daq;
     ::std::list< BranchUserInputInfo > aInput;
@@ -319,7 +336,116 @@ mxArray*  emulator::Application::GetMultipleBranchesFromFile(const QString& a_ar
         return nullptr;
     }
 
-    return nullptr;
+    return DataToMatlab(aOutput);
+
+}
+
+static size_t InfoToMatlabRaw(mxClassID* a_pClsIdOfData,mxArray* a_pMatlabArray, size_t a_nIndex, int a_unFieldOffset,const pitz::daq::BranchOutputForUserInfo& a_info);
+
+namespace glbDataFields{enum{Name,Data=3};}
+namespace locDataFields{enum{Time,Event,Data};}
+namespace baseInfoFields{enum{Type,itemsCount};}
+namespace advInfoFields{enum{Name=0,numberOfEntriesInTheFile=3,firstTime,lastTime,firstEvent,lastEvent};}
+
+static mxArray* DataToMatlab( const ::std::list< pitz::daq::BranchOutputForUserInfo* >& a_data )
+{
+    //Type::Type   dataType;int          itemsCount;  int          numberOfEntriesInTheFile;
+    // struct EntryInfoAdv : data::EntryInfo{int firstTime,lastTime,firstEvent,lastEvent; ::std::string name; const int* ptr()const{return &firstTime;} int* ptr(){return &firstTime;}};
+    static const char* svcpcFieldNamesGlb[] = {"name","type","itemsCount","data"};
+    static const int scnNumberOfFieldsGlb = sizeof(svcpcFieldNamesGlb)/sizeof(const char*);
+    static const char* svcpcFieldNames[] = {"time","event","data"};
+    static const int scnNumberOfFields = sizeof(svcpcFieldNames)/sizeof(const char*);
+    pitz::daq::data::memory::ForClient* pDataRaw;
+    const size_t cunNumOfBranches(a_data.size());
+    size_t nIndexBranch,nIndexEvent, nNumberOfEvents;
+    size_t unItemSize;
+    mxClassID clsId;
+    mxArray *pNameGlb,*pDataGlb;
+    mxArray *pTime, *pEvent,*pData;
+    ::std::list< pitz::daq::BranchOutputForUserInfo* >::const_iterator pIter(a_data.begin()),pIterEnd(a_data.end());
+    mxArray* pMatArray = mxCreateStructMatrix(cunNumOfBranches,1,scnNumberOfFieldsGlb,svcpcFieldNamesGlb);
+    HANDLE_MEM_DEF(pMatArray,"No memory to create struct matrix");
+
+    for( nIndexBranch=0;pIter != pIterEnd;++nIndexBranch,++pIter ){
+
+        //nNumberOfEvents = a_data[nIndexBranch].entryData.size();
+        nNumberOfEvents = (*pIter)->data.size();
+
+        unItemSize=InfoToMatlabRaw(&clsId,pMatArray,nIndexBranch,1,*(*pIter));
+
+        pNameGlb = mxCreateString((*pIter)->userClbk->branchName.c_str());HANDLE_MEM_DEF(pNameGlb," ");
+        pDataGlb = mxCreateStructMatrix(nNumberOfEvents,1,scnNumberOfFields,svcpcFieldNames);HANDLE_MEM_DEF(pDataGlb," ");
+
+        for(nIndexEvent=0; nIndexEvent<nNumberOfEvents;++nIndexEvent){
+            pDataRaw = (*pIter)->data[nIndexEvent];
+            pTime = mxCreateNumericMatrix(1,1,mxINT32_CLASS,mxREAL);HANDLE_MEM_DEF(pTime," ");
+            *(STATIC_CAST(int32_t*,mxGetData(pTime)))=(*pIter)->data[nIndexEvent]->time();
+            pEvent = mxCreateNumericMatrix(1,1,mxINT32_CLASS,mxREAL);HANDLE_MEM_DEF(pEvent," ");*(STATIC_CAST(int32_t*,mxGetData(pEvent)))=pDataRaw->gen_event();
+            pData = mxCreateNumericMatrix(1,STATIC_CAST(size_t,(*pIter)->info.itemsCountPerEntry),clsId,mxREAL);HANDLE_MEM_DEF(pData," ");
+            memcpy( mxGetData(pData),(*pIter)->data[nIndexEvent]->dataPtr<void>(),unItemSize* STATIC_CAST(size_t,(*pIter)->info.itemsCountPerEntry));
+
+            mxSetFieldByNumber(pDataGlb,nIndexEvent,STATIC_CAST(size_t,locDataFields::Time),pTime);
+            mxSetFieldByNumber(pDataGlb,nIndexEvent,STATIC_CAST(size_t,locDataFields::Event),pEvent);
+            mxSetFieldByNumber(pDataGlb,nIndexEvent,STATIC_CAST(size_t,locDataFields::Data),pData);
+
+        }
+
+        mxSetFieldByNumber(pMatArray,nIndexBranch,STATIC_CAST(size_t,glbDataFields::Name),pNameGlb);
+        mxSetFieldByNumber(pMatArray,nIndexBranch,STATIC_CAST(size_t,glbDataFields::Data),pDataGlb);
+
+    }
+
+    return pMatArray;
+}
+
+
+static size_t InfoToMatlabRaw(mxClassID* a_pClsIdOfData,mxArray* a_pMatlabArray, size_t a_nIndex, int a_unFieldOffset,const pitz::daq::BranchOutputForUserInfo& a_info)
+{
+    // time_field = mxGetFieldNumber(pDataGlb,svcpcFieldNames[0]);
+    mxArray *pType, *pItemsCount;
+    size_t unItemSize;
+    mxClassID& clsId = *a_pClsIdOfData;
+
+    switch(a_info.info.dataType){
+    case pitz::daq::data::type::Int:
+        pType = mxCreateString("Int_t");
+        clsId = mxINT32_CLASS;
+        unItemSize = 4;
+        break;
+    case pitz::daq::data::type::Float:
+        pType = mxCreateString("Float_t");
+        clsId = mxSINGLE_CLASS;
+        unItemSize = 4;
+        break;
+    case pitz::daq::data::type::CharAscii:
+        pType = mxCreateString("String");
+        clsId = mxCHAR_CLASS;
+        unItemSize = 1;
+        break;
+    case pitz::daq::data::type::IIII_old:
+        pType = mxCreateString("IIII_old");
+        clsId = mxSTRUCT_CLASS;
+        unItemSize = 16;
+        break;
+    case pitz::daq::data::type::IFFF_old:
+        pType = mxCreateString("IFFF_old");
+        clsId = mxSTRUCT_CLASS;
+        unItemSize = 16;
+        break;
+    default:
+        pType = mxCreateString("Unknown");
+        clsId = mxUNKNOWN_CLASS;
+        unItemSize = 1;
+        break;
+    }
+    HANDLE_MEM_DEF(pType,"No memory to create type string");
+
+    pItemsCount = mxCreateNumericMatrix(1,1,mxINT32_CLASS,mxREAL);HANDLE_MEM_DEF(pItemsCount," ");*(STATIC_CAST(int32_t*,mxGetData( pItemsCount )))=a_info.info.itemsCountPerEntry;
+
+    mxSetFieldByNumber(a_pMatlabArray,a_nIndex,a_unFieldOffset + STATIC_CAST(int,baseInfoFields::Type),pType);
+    mxSetFieldByNumber(a_pMatlabArray,a_nIndex,a_unFieldOffset + STATIC_CAST(int,baseInfoFields::itemsCount),pItemsCount);
+
+    return unItemSize;
 }
 
 

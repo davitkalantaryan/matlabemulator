@@ -10,7 +10,7 @@
 
 namespace pitz{ namespace daq{ namespace data{
 
-namespace type{enum Type{Error=-1,NoData=0,Int=1,Float=2,String=3,IIII_old=4,IFFF_old=5};}
+namespace type{enum Type{Error=-1,NoData=0,Int=1,Float=2,CharAscii=3,IIII_old=4,IFFF_old=5};}
 
 struct EntryInfoBase{
     const char*  dataTypeFromRoot;

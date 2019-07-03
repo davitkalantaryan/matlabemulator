@@ -13,7 +13,8 @@
 
 int main(int a_argc, char* a_argv[])
 {
-    freopen("stderr.txt","w",stderr);
+    //freopen("stderr.txt","w",stderr);
+    freopen("/dev/nul","w",stderr);
 
     qRegisterMetaType<QtMsgType>( "QtMsgType" );
 

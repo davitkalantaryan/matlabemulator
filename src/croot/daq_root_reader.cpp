@@ -23,7 +23,6 @@ typedef bool (*TypeContinue)(void* clbkData, const data::memory::ForClient&);
 
 static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< BranchOutputForUserInfo* >::iterator a_pOutBranchItem);
 static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName,
-                                              ::std::list< BranchUserInputInfo >::const_iterator a_pInpBranchItem,
                                               ::std::list< BranchOutputForUserInfo* >* a_pOutputIn,
                                               ::std::list< BranchOutputForUserInfo* >* a_pOutputOut,
                                               TypeContinue a_fpContinue, void* a_pClbkData);
@@ -35,7 +34,7 @@ namespace pitz{ namespace daq{
 //    //
 //}
 
-int Initialize()
+int RootInitialize()
 {
     gROOT->GetPluginManager()->AddHandler("TVirtualStreamerInfo",
                                           "*",
@@ -47,7 +46,7 @@ int Initialize()
 }
 
 
-void Cleanup()
+void RootCleanup()
 {
     //
 }
@@ -55,20 +54,20 @@ void Cleanup()
 int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput)
 {
     int nReturn;
-    ::std::list< BranchUserInputInfo >::const_iterator pInpBranchItem, pInpBranchItemBegin(a_Input.begin()), pInpBranchItemEnd(a_Input.end());
+    ::std::list< BranchUserInputInfo >::const_iterator pInpBranchItem(a_Input.begin()), pInpBranchItemEnd(a_Input.end());
     //::std::list< BranchOutputForUserInfo >::iterator pOutBranchItem;
     ::std::list< BranchOutputForUserInfo* > aOutputIn;
     BranchOutputForUserInfo* pOutData;
 
     //aOutputIn.resize(a_Input.size());
-    for(pInpBranchItem = pInpBranchItemBegin;pInpBranchItem!=pInpBranchItemEnd;++pInpBranchItem){
+    for(;pInpBranchItem!=pInpBranchItemEnd;++pInpBranchItem){
         //(*pOutBranchItem).userClbk = &(*pInpBranchItem);
         pOutData = new BranchOutputForUserInfo;
         pOutData->userClbk = &(*pInpBranchItem);
         aOutputIn.push_back(pOutData);
     }
 
-    nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,pInpBranchItemBegin,&aOutputIn,a_pOutput,
+    nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,&aOutputIn,a_pOutput,
                                              [](void*,const data::memory::ForClient&){return true;},nullptr);
 
     a_pOutput->splice(a_pOutput->end(),aOutputIn,aOutputIn.begin(),aOutputIn.end());
@@ -79,12 +78,13 @@ int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< 
 
 
 static int GetMultipleBranchesFromFileStatic(
-        const char* a_rootFileName, ::std::list< BranchUserInputInfo >::const_iterator a_pInpBranchItem,
+        const char* a_rootFileName,
         ::std::list< BranchOutputForUserInfo* >* a_pOutputIn,
         ::std::list< BranchOutputForUserInfo* >* a_pOutputOut,
         TypeContinue a_fpContinue, void* a_pClbkData)
 {
     const char* cpcFileName(a_rootFileName);
+    const char* cpcDaqEntryName;
     TBranch *pBranch;
     TTree* pTree;
     TFile* tFile  ;
@@ -139,17 +139,19 @@ static int GetMultipleBranchesFromFileStatic(
 
 
     pOutBranchItemEnd = a_pOutputIn->end();
-    for(pOutBranchItem=a_pOutputIn->begin();pOutBranchItem!=pOutBranchItemEnd;++a_pInpBranchItem,++pOutBranchItem){
+    for(pOutBranchItem=a_pOutputIn->begin();pOutBranchItem!=pOutBranchItemEnd;){
 
-        pTree = static_cast<TTree *>(tFile->Get((*a_pInpBranchItem).branchName.c_str()));
+        cpcDaqEntryName = (*pOutBranchItem)->userClbk->branchName.c_str();
+
+        pTree = static_cast<TTree *>(tFile->Get(cpcDaqEntryName));
         if(!pTree){
-            MAKE_REPORT_THIS(2,"Tree \"%s\" is not found", (*a_pInpBranchItem).branchName.c_str());
+            MAKE_REPORT_THIS(2,"Tree \"%s\" is not found", cpcDaqEntryName);
             goto nextBranchItem;
         }
 
-        pBranch = pTree->GetBranch((*a_pInpBranchItem).branchName.c_str());
+        pBranch = pTree->GetBranch(cpcDaqEntryName);
         if(!pBranch){
-            MAKE_WARNING_THIS("Branch \"%s\" is not found in the tree\n",(*a_pInpBranchItem).branchName.c_str());
+            MAKE_WARNING_THIS("Branch \"%s\" is not found in the tree\n",cpcDaqEntryName);
             goto nextBranchItem;
         }
 
@@ -160,7 +162,7 @@ static int GetMultipleBranchesFromFileStatic(
         aMemory.SetBranchInfo((*pOutBranchItem)->info);
 
         MAKE_REPORT_THIS(2,"nNumOfEntries[%s] = %d, dataType:%s, itemsCount=%d",
-                         (*pInpBranchItem)->branchName.c_str(), (*pOutBranchItem).numberOfEntries,
+                         cpcDaqEntryName, (*pOutBranchItem).numberOfEntries,
                          cpcDataType,aBrInfo.itemsCount);
 
         for(nIndexEntry=0;nIndexEntry<numberOfEntriesInTheFile;++nIndexEntry){
@@ -198,39 +200,68 @@ returnPoint:
     return nReturn;
 }
 
+#include <QDebug>
 
 static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< BranchOutputForUserInfo* >::iterator a_pOutBranchItem)
 {
     TLeaf* pLeaf ;
-    const char* cpcTypeName="";
+    const char* cpcTypeName=a_pBranch->GetClassName();
+    TIter  aList = const_cast<TBranch*>(a_pBranch)->GetListOfLeaves();
 
-    pLeaf = a_pBranch->GetLeaf("data");  // new approach
-    if(pLeaf){goto finalizingInfo;}
-
-    pLeaf = a_pBranch->GetLeaf("float_value");
-    if(pLeaf){goto finalizingInfo;}
-
-    pLeaf = a_pBranch->GetLeaf("int_value");
-    if(pLeaf){goto finalizingInfo;}
-
-    pLeaf = a_pBranch->GetLeaf("array_value");
-    if(pLeaf){goto finalizingInfo;}
-
-    pLeaf = a_pBranch->GetLeaf("char_array");
-    if(pLeaf){cpcTypeName = "string";(*a_pOutBranchItem)->info.dataType = data::type::String;goto finalizeCharArrays;}
+    //qDebug()<<pList;
 
     pLeaf = a_pBranch->GetLeaf("IIII_array");
-    if(pLeaf){cpcTypeName = "IIII_old";(*a_pOutBranchItem)->info.dataType = data::type::IIII_old;goto finalizeCharArrays;}
+    if(pLeaf){cpcTypeName = "IIII_old";(*a_pOutBranchItem)->info.dataType = data::type::IIII_old;goto finalizeOldArrays;}
 
     pLeaf = a_pBranch->GetLeaf("IFFF_array");
-    if(pLeaf){cpcTypeName = "IFFF_old";(*a_pOutBranchItem)->info.dataType = data::type::IFFF_old;goto finalizeCharArrays;}
+    if(pLeaf){cpcTypeName = "IFFF_old";(*a_pOutBranchItem)->info.dataType = data::type::IFFF_old;goto finalizeOldArrays;}
 
-    (*a_pOutBranchItem)->info.dataType = data::type::Error;
+    ++(++aList);  // skipping time and eventNumber
+    if ((pLeaf = STATIC_CAST(TLeaf*,aList()))) {
+        cpcTypeName = pLeaf->GetName();
+        qDebug()<<pLeaf<<cpcTypeName;
+    }
+    else{
+        (*a_pOutBranchItem)->info.dataType = data::type::Error;
+        (*a_pOutBranchItem)->info.itemsCountPerEntry = 0;
+        (*a_pOutBranchItem)->info.dataTypeFromRoot = "unknown";
+        return false;
+    }
+
     (*a_pOutBranchItem)->info.itemsCountPerEntry = 0;
-    (*a_pOutBranchItem)->info.dataTypeFromRoot = "unknown";
-    return false;
 
-finalizingInfo:
+    //pLeaf = a_pBranch->GetLeaf("data");  // new approach
+    //if(pLeaf){goto finalizingInfo;}
+    //
+    //pLeaf = a_pBranch->GetLeaf("float_value");
+    //if(pLeaf){goto finalizingInfo;}
+    //
+    //pLeaf = a_pBranch->GetLeaf("int_value");
+    //if(pLeaf){goto finalizingInfo;}
+    //
+    //pLeaf = a_pBranch->GetLeaf("array_value");
+    //if(pLeaf){goto finalizingInfo;}
+    //
+    //pLeaf = a_pBranch->GetLeaf("char_array");
+    //if(pLeaf){
+    //    cpcTypeName = pLeaf->GetTypeName();
+    //    (*a_pOutBranchItem)->info.itemsCountPerEntry =  pLeaf->GetLen();
+    //    cpcTypeName = "string";
+    //    (*a_pOutBranchItem)->info.dataType = data::type::String;goto finalizeCharArrays;
+    //}
+    //
+    //pLeaf = a_pBranch->GetLeaf("IIII_array");
+    //if(pLeaf){cpcTypeName = "IIII_old";(*a_pOutBranchItem)->info.dataType = data::type::IIII_old;goto finalizeCharArrays;}
+    //
+    //pLeaf = a_pBranch->GetLeaf("IFFF_array");
+    //if(pLeaf){cpcTypeName = "IFFF_old";(*a_pOutBranchItem)->info.dataType = data::type::IFFF_old;goto finalizeCharArrays;}
+    //
+    //(*a_pOutBranchItem)->info.dataType = data::type::Error;
+    //(*a_pOutBranchItem)->info.itemsCountPerEntry = 0;
+    //(*a_pOutBranchItem)->info.dataTypeFromRoot = "unknown";
+    //return false;
+
+//finalizingInfo:
     cpcTypeName = pLeaf->GetTypeName();
 
     if(strcmp(cpcTypeName,"Float_t")==0){
@@ -239,14 +270,22 @@ finalizingInfo:
     else if(strcmp(cpcTypeName,"Int_t")==0){
         (*a_pOutBranchItem)->info.dataType = data::type::Int;
     }
+    else if(strcmp(cpcTypeName,"Char_t")==0){
+        (*a_pOutBranchItem)->info.itemsCountPerEntry = 1;
+        (*a_pOutBranchItem)->info.dataType = data::type::CharAscii;
+    }
     else{
         (*a_pOutBranchItem)->info.dataType = data::type::Error;
+        (*a_pOutBranchItem)->info.itemsCountPerEntry = 0;
+        (*a_pOutBranchItem)->info.dataTypeFromRoot = "unknown";
+        return false;
     }
 
-    (*a_pOutBranchItem)->info.itemsCountPerEntry =  pLeaf->GetLen();
+    (*a_pOutBranchItem)->info.itemsCountPerEntry +=  pLeaf->GetLen();
     (*a_pOutBranchItem)->info.dataTypeFromRoot = cpcTypeName;
+    return true;
 
-finalizeCharArrays:
+finalizeOldArrays:
     (*a_pOutBranchItem)->info.itemsCountPerEntry =  1;
     return true;
 }

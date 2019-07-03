@@ -32,6 +32,8 @@
 #endif
 #endif
 
+#include <functional>
+
 namespace matlab { namespace emulator {
 
 
@@ -54,6 +56,7 @@ public:
     ~Application() OVERRIDE ;
 
     bool RunCommand( QString& a_command );
+    void RunCommand2( const QString&  ){}
     operator ::QSettings& ();
 
 private:
@@ -68,7 +71,7 @@ private:
     void noMessageOutput(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
     void OpenOrReopenMatEngine();
     ssize_t  ReadMatlabErrorPipe(char* buffer, size_t bufferSize);
-    mxArray*  GetMultipleBranchesFromFile(const QString& argumentsLine);
+    mxArray*  GetMultipleBranchesFromFileCls(const QString& argumentsLine);
 
 private:
     CalcThread                  m_calcThread;
@@ -83,6 +86,12 @@ private:
     int                         m_vErrorPipes[2];
     QTimer                      m_settingsUpdateTimer;
     QMap< QString, mxArray* >   m_variablesMap;
+    //QMap< QString, void (Application::*)(const QString&) >   m_functionsMap;//QMetaMethod
+    QMap< QString, void (*)(Application*,const QString&,const QString&) >   m_functionsMap;//QMetaMethod
+    //QMap< QString, QMetaMethod >   m_functionsMap;
+    //QMap< QString, void (*)(const QString&) >   m_functionsMap;//QMetaMethod
+    //QMap< QString,::std::function< void(Application&, const QString&) > > m_functionsMap;
+    //QMap< QString,decltype ([this](){}) > m_functionsMap;
 };
 
 }} // namespace matlab { namespace  {
