@@ -63,11 +63,13 @@
 #define __FINAL__	final
 #define STATIC_CAST(_Type,_Data)        static_cast<_Type>(_Data)
 #define REINTERPRET_CAST(_Type,_Data)   reinterpret_cast<_Type>(_Data)
+#define NEWNULLPTR                      nullptr
 #else
 #define __OVERRIDE__
 #define __FINAL__
 #define STATIC_CAST(_Type,_Data)        ( (_Type)(_Data) )
 #define REINTERPRET_CAST(_Type,_Data)   ( (_Type)(_Data) )
+#define NEWNULLPTR                      NULL
 #endif
 
 #include <stdarg.h>

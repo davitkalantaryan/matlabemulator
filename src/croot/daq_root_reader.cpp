@@ -9,12 +9,18 @@
 #include <TKey.h>
 #include "TLeaf.h"
 #include <daq_root_reader.hpp>
+#include <pitz/daq/data/indexing.hpp>
+#include <cpp11+/common_defination.h>
 
 #define MAKE_ERROR_THIS(...)
 #define MAKE_REPORT_THIS(...)
 #define MAKE_WARNING_THIS(...)
 
 #define TMP_FILE_NAME       "tmp.root.file.root"
+
+struct STimeCompareData{
+    time_t startTime, endTime;
+};
 
 
 using namespace pitz::daq;
@@ -23,6 +29,7 @@ namespace callbackReturn { enum Type{Collect,SkipThisEntry,StopThisBranch,StopFo
 
 typedef callbackReturn::Type (*TypeContinue)(void* clbkData, const data::memory::ForClient&);
 
+static callbackReturn::Type TimeComparePrivate(void* a_pData,const data::memory::ForClient& a_memory);
 static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< BranchOutputForUserInfo* >::iterator a_pOutBranchItem);
 static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName,
                                               ::std::list< BranchOutputForUserInfo* >* a_pOutputIn,
@@ -70,20 +77,22 @@ int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< 
     }
 
     nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,&aOutputIn,a_pOutput,
-                                             [](void*,const data::memory::ForClient&){return true;},nullptr);
+                                             [](void*,const data::memory::ForClient&){return callbackReturn::Collect;},nullptr);
 
     a_pOutput->splice(a_pOutput->end(),aOutputIn,aOutputIn.begin(),aOutputIn.end());
     return nReturn;
 }
 
 
-int GetMultipleBranchesForTime( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput)
+int GetMultipleBranchesForTime( time_t a_startTime, time_t a_endTime, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput)
 {
     int nReturn;
     ::std::list< BranchUserInputInfo >::const_iterator pInpBranchItem(a_Input.begin()), pInpBranchItemEnd(a_Input.end());
     //::std::list< BranchOutputForUserInfo >::iterator pOutBranchItem;
     ::std::list< BranchOutputForUserInfo* > aOutputIn;
     BranchOutputForUserInfo* pOutData;
+    STimeCompareData aTmData({a_startTime,a_endTime});
+    ::std::vector< ::std::string > vectFiles;
 
     //aOutputIn.resize(a_Input.size());
     for(;pInpBranchItem!=pInpBranchItemEnd;++pInpBranchItem){
@@ -93,14 +102,37 @@ int GetMultipleBranchesForTime( const char* a_rootFileName, const ::std::list< B
         aOutputIn.push_back(pOutData);
     }
 
-    nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,&aOutputIn,a_pOutput,
-                                             [](void*,const data::memory::ForClient&){return callbackReturn::Collect;},nullptr);
+    while(aOutputIn.size()){
+        //
+    }
+
+
+    //data::indexing::GetListOfFilesForTimeInterval()
+    //nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,&aOutputIn,a_pOutput,
+    //                                         [](void*,const data::memory::ForClient&){return callbackReturn::Collect;},nullptr);
 
     a_pOutput->splice(a_pOutput->end(),aOutputIn,aOutputIn.begin(),aOutputIn.end());
     return nReturn;
 }
 
 }} // namespace pitz{ namespace daq{
+
+
+
+static callbackReturn::Type TimeComparePrivate(void* a_pData,const data::memory::ForClient& a_memory)
+{
+    STimeCompareData* pTmData = STATIC_CAST(STimeCompareData*,a_pData);
+    time_t measureTime = a_memory.time();
+
+    if(measureTime>pTmData->endTime){
+        return callbackReturn::StopThisBranch;
+    }
+    else if(measureTime<pTmData->startTime){
+        return callbackReturn::SkipThisEntry;
+    }
+
+    return callbackReturn::Collect;
+}
 
 
 static int GetMultipleBranchesFromFileStatic(

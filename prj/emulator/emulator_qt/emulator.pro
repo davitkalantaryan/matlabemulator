@@ -44,7 +44,8 @@ SOURCES += \
     $${PWD}/../../../src/croot/daq_root_reader.cpp                      \
     $${PWD}/../../../src/utils/pitz_daq_data_memory_base.cpp            \
     $${PWD}/../../../src/utils/pitz_daq_data_memory_forclient.cpp       \
-    $${PWD}/../../../src/utils/pitz_daq_data_entryinfo.cpp
+    $${PWD}/../../../src/utils/pitz_daq_data_entryinfo.cpp              \
+    $${PWD}/../../../src/indexing/pitz_daq_data_indexing.cpp
 
 HEADERS += \
     $${PWD}/../../../src/emulator/matlab_emulator_application.hpp       \
@@ -54,7 +55,8 @@ HEADERS += \
     $${PWD}/../../../include/daq_root_reader.hpp                        \
     $${PWD}/../../../include/pitz/daq/data/memory/base.hpp              \
     $${PWD}/../../../include/pitz/daq/data/memory/forclient.hpp         \
-    $${PWD}/../../../include/pitz/daq/data/entryinfo.hpp
+    $${PWD}/../../../include/pitz/daq/data/entryinfo.hpp                \
+    $${PWD}/../../../include/pitz/daq/data/indexing.hpp
 
 
 OTHER_FILES += \
