@@ -84,15 +84,16 @@ int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< 
 }
 
 
-int GetMultipleBranchesForTime( time_t a_startTime, time_t a_endTime, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput)
+void GetMultipleBranchesForTime( time_t a_startTime, time_t a_endTime, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput)
 {
-    int nReturn;
     ::std::list< BranchUserInputInfo >::const_iterator pInpBranchItem(a_Input.begin()), pInpBranchItemEnd(a_Input.end());
     //::std::list< BranchOutputForUserInfo >::iterator pOutBranchItem;
     ::std::list< BranchOutputForUserInfo* > aOutputIn;
     BranchOutputForUserInfo* pOutData;
     STimeCompareData aTmData({a_startTime,a_endTime});
     ::std::vector< ::std::string > vectFiles;
+    BranchOutputForUserInfo* pActiveBrnch;
+    size_t unNumberOfFiles, unFileIndex;
 
     //aOutputIn.resize(a_Input.size());
     for(;pInpBranchItem!=pInpBranchItemEnd;++pInpBranchItem){
@@ -103,7 +104,16 @@ int GetMultipleBranchesForTime( time_t a_startTime, time_t a_endTime, const ::st
     }
 
     while(aOutputIn.size()){
-        //
+        pActiveBrnch = aOutputIn.front();
+        data::indexing::GetListOfFilesForTimeInterval(aOutputIn.front()->userClbk->branchName.c_str(),a_startTime,a_endTime,&vectFiles);
+        unNumberOfFiles = vectFiles.size();
+        for(unFileIndex=0;unFileIndex<unNumberOfFiles;++unFileIndex){
+            GetMultipleBranchesFromFileStatic(vectFiles[unFileIndex].c_str(),&aOutputIn,a_pOutput,TimeComparePrivate,&aTmData);
+        }
+
+        if(pActiveBrnch == aOutputIn.front()){
+            a_pOutput->splice(a_pOutput->end(),aOutputIn,aOutputIn.begin());
+        }
     }
 
 
@@ -111,8 +121,8 @@ int GetMultipleBranchesForTime( time_t a_startTime, time_t a_endTime, const ::st
     //nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,&aOutputIn,a_pOutput,
     //                                         [](void*,const data::memory::ForClient&){return callbackReturn::Collect;},nullptr);
 
+
     a_pOutput->splice(a_pOutput->end(),aOutputIn,aOutputIn.begin(),aOutputIn.end());
-    return nReturn;
 }
 
 }} // namespace pitz{ namespace daq{
@@ -159,7 +169,6 @@ static int GetMultipleBranchesFromFileStatic(
     data::memory::ForClient aMemory(data::EntryInfoBase(),nullptr);
     data::memory::ForClient* pMemToAdd;
     callbackReturn::Type aClbkReturn;
-    bool bWork;
 
     //if(this->m_clbkType != callbackN::Type::MultiEntries)
     //{
@@ -201,6 +210,7 @@ static int GetMultipleBranchesFromFileStatic(
     pOutBranchItemEnd = a_pOutputIn->end();
     for(pOutBranchItem=a_pOutputIn->begin();pOutBranchItem!=pOutBranchItemEnd;){
 
+nextBranchPreparedInAdvance:
         cpcDaqEntryName = (*pOutBranchItem)->userClbk->branchName.c_str();
 
         pTree = static_cast<TTree *>(tFile->Get(cpcDaqEntryName));
@@ -225,7 +235,7 @@ static int GetMultipleBranchesFromFileStatic(
                          cpcDaqEntryName, (*pOutBranchItem).numberOfEntries,
                          cpcDataType,aBrInfo.itemsCount);
 
-        for(nIndexEntry=0,bWork=true;(nIndexEntry<numberOfEntriesInTheFile)&&bWork;++nIndexEntry){
+        for(nIndexEntry=0;nIndexEntry<numberOfEntriesInTheFile;++nIndexEntry){
             pBranch->SetAddress(aMemory.rawBuffer());
             pBranch->GetEntry(nIndexEntry);
 
@@ -239,9 +249,9 @@ static int GetMultipleBranchesFromFileStatic(
             case callbackReturn::SkipThisEntry:
                 continue;
             case callbackReturn::StopThisBranch:
+                pOutBranchItemTmp = pOutBranchItem++;
                 a_pOutputOut->splice(a_pOutputOut->end(),*a_pOutputIn,pOutBranchItemTmp);
-                bWork = false;
-                break;
+                goto nextBranchPreparedInAdvance;
             case callbackReturn::StopForAll:
                 nReturn = 0;
                 goto returnPoint;
@@ -253,6 +263,7 @@ static int GetMultipleBranchesFromFileStatic(
 
 nextBranchItem:
         ++pOutBranchItem;
+
     }
 
     nReturn = 0;
@@ -361,3 +372,5 @@ finalizeOldArrays:
     (*a_pOutBranchItem)->info.itemsCountPerEntry =  1;
     return true;
 }
+
+//#include "MatlabEngine.hpp"

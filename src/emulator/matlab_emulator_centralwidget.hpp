@@ -9,13 +9,6 @@
 #include <QVBoxLayout>
 #include "matlab_emulator_commandprompt.hpp"
 
-#ifndef OVERRIDE
-#ifdef CPP11_USED
-#define OVERRIDE override
-#else
-#define OVERRIDE
-#endif
-#endif
 
 namespace matlab { namespace emulator {
 

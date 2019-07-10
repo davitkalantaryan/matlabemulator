@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <QList>
 #include <QVariant>
+#include <cpp11+/common_defination.h>
 
 #define MAX_COMMANDS_SIZE   128
 
@@ -19,13 +20,6 @@
 #define RingListType    QVariant
 #define BASE_LIST       ::QList
 
-#ifndef OVERRIDE
-#ifdef CPP11_USED
-#define OVERRIDE override
-#else
-#define OVERRIDE
-#endif
-#endif
 
 namespace matlab { namespace emulator {
 

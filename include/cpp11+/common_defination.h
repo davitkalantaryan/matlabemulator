@@ -59,14 +59,14 @@
 
 // This should be done after check
 #ifdef __CPP11_DEFINED__
-#define __OVERRIDE__	override
-#define __FINAL__	final
+#define OVERRIDE	override
+#define FINAL    	final
 #define STATIC_CAST(_Type,_Data)        static_cast<_Type>(_Data)
 #define REINTERPRET_CAST(_Type,_Data)   reinterpret_cast<_Type>(_Data)
 #define NEWNULLPTR                      nullptr
 #else
-#define __OVERRIDE__
-#define __FINAL__
+#define OVERRIDE
+#define FINAL
 #define STATIC_CAST(_Type,_Data)        ( (_Type)(_Data) )
 #define REINTERPRET_CAST(_Type,_Data)   ( (_Type)(_Data) )
 #define NEWNULLPTR                      NULL
@@ -75,14 +75,16 @@
 #include <stdarg.h>
 
 #ifdef __cplusplus
+#ifdef FUNCTION_POINTER_TO_VOID_POINTER
 template <typename FncType>
 static inline void* FUNCTION_POINTER_TO_VOID_POINTER(FncType _a_fnc_)
 {
     FncType aFnc = _a_fnc_;
-    void** ppFnc = (void**)&aFnc;
+    void** ppFnc = STATIC_CAST(void**,&aFnc);
     void* pRet = *ppFnc;
     return pRet;
 }
+#endif
 #endif // #ifdef __cplusplus
 
 #ifdef __cplusplus

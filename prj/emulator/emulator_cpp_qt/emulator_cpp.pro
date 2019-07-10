@@ -6,9 +6,13 @@
 TEMPLATE = app
 TARGET = matlabemulator
 
-CONFIG += DEBUG
+QMAKE_CXXFLAGS_WARN_ON += -Wno-unused-parameter
+QMAKE_CXXFLAGS_WARN_ON += -Wno-unused-function
 
-#CONFIG += c++17
+DEFINES += USE_CPP_ENGINE
+
+CONFIG += DEBUG
+CONFIG += c++17
 #QMAKE_CXXFLAGS += -std=c++14
 
 GCCPATH = $$system(which gcc)
@@ -16,7 +20,7 @@ GCCPATH = $$system(which gcc)
 message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
 
 # include ($${PWD}/../../common/common_qt/sys_common.pri)
-include ($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_matrix_common.pri)
+include ($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_cpp_engine_common.pri)
 include($${PWD}/../../common/common_qt/root_no_gui_common.pri)
 
 INCLUDEPATH += $${PWD}/../../../include
@@ -25,10 +29,10 @@ QT += gui
 QT += core
 greaterThan(QT_MAJOR_VERSION, 4):QT += widgets
 
-LIBS += -leng
-LIBS += -lmat
-LIBS += -lhdf5_hl
-LIBS += -lhdf5
+#LIBS += -leng
+#LIBS += -lmat
+#LIBS += -lhdf5_hl
+#LIBS += -lhdf5
 
 win32{
 } else {
@@ -37,7 +41,7 @@ win32{
 
 SOURCES += \
     $${PWD}/../../../src/emulator/main_matlabemulator.cpp               \
-    $${PWD}/../../../src/emulator/matlab_emulator_application_c.cpp     \
+    $${PWD}/../../../src/emulator/matlab_emulator_application_cpp.cpp   \
     $${PWD}/../../../src/emulator/matlab_emulator_mainwindow.cpp        \
     $${PWD}/../../../src/emulator/matlab_emulator_centralwidget.cpp     \
     $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.cpp     \
@@ -48,7 +52,8 @@ SOURCES += \
     $${PWD}/../../../src/indexing/pitz_daq_data_indexing.cpp
 
 HEADERS += \
-    $${PWD}/../../../src/emulator/matlab_emulator_application_c.hpp     \
+    $${PWD}/../../../src/emulator/matlab_emulator_application.hpp       \
+    $${PWD}/../../../src/emulator/matlab_emulator_application_cpp.hpp   \
     $${PWD}/../../../src/emulator/matlab_emulator_mainwindow.hpp        \
     $${PWD}/../../../src/emulator/matlab_emulator_centralwidget.hpp     \
     $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.hpp     \

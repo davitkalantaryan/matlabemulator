@@ -3,7 +3,7 @@
 // created on:  2019 Jun 12
 //
 
-#include "matlab_emulator_application.hpp"
+#include "matlab_emulator_application_c.hpp"
 #include <QRegExp>
 #include <iostream>
 #include <QFileInfo>
@@ -126,7 +126,7 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             emit a_this->MatlabOutputSignal(QString("\n")+aKey);
         }
     });
-    m_functionsMap.insert("getdata1",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+    m_functionsMap.insert("getdatafl",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
         if((!a_inputArgumentsLine.size())||(!a_retArgumetName.size())){
             // make error report
             return;
@@ -137,15 +137,20 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             a_this->m_variablesMap.insert(a_retArgumetName,mxData);
         }
     });
-    m_functionsMap.insert("getdata2",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+    m_functionsMap.insert("getdatatm",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
         if((!a_inputArgumentsLine.size())||(!a_retArgumetName.size())){
             // make error report
             return;
         }
 
-        mxArray* mxData = a_this->GetMultipleBranchesFromFileCls2(a_inputArgumentsLine);
+        mxArray* mxData = a_this->GetMultipleBranchesForTimeInterval(a_inputArgumentsLine);
         if(mxData){
             a_this->m_variablesMap.insert(a_retArgumetName,mxData);
+        }
+    });
+    m_functionsMap.insert("tomatlab",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+        if(a_this->m_variablesMap.contains(a_inputArgumentsLine)){
+            CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engPutVariable,a_inputArgumentsLine.toStdString().c_str(),a_this->m_variablesMap[a_inputArgumentsLine]);
         }
     });
     m_functionsMap.insert("help",[](Application* a_this,const QString&,const QString&){
@@ -190,6 +195,7 @@ void emulator::Application::OpenOrReopenMatEngine()
     stderrCopy = dup(STDERR_FILENO);
     dup2(m_vErrorPipes[1],STDERR_FILENO);
     m_pEngine = engOpen(MATLAB_START_COMMAND);
+    //m_pEngine = engOpenSingleUse(MATLAB_START_COMMAND,nullptr,nullptr);
     dup2(stderrCopy,STDERR_FILENO);
     close(stderrCopy);
 }
@@ -352,22 +358,32 @@ mxArray*  emulator::Application::GetMultipleBranchesFromFileCls(const QString& a
 }
 
 
-mxArray*  emulator::Application::GetMultipleBranchesFromFileCls2(const QString& a_argumentsLine)
+mxArray*  emulator::Application::GetMultipleBranchesForTimeInterval(const QString& a_argumentsLine)
 {
     using namespace ::pitz::daq;
     ::std::list< BranchUserInputInfo > aInput;
     ::std::list< BranchOutputForUserInfo* > aOutput;
     int nIndex = a_argumentsLine.indexOf(QChar(','));
-    QString fileName;
+    QString timeStartStr, timeEndStr;
     QString branchName;
     QString remainingLine;
+    time_t timeStart, timeEnd;
 
     if(nIndex<1){
         return nullptr;
     }
-
-    fileName = a_argumentsLine.left(nIndex).trimmed();
+    timeStartStr = a_argumentsLine.left(nIndex).trimmed();
     remainingLine = a_argumentsLine.mid(nIndex+1);
+
+    nIndex = remainingLine.indexOf(QChar(','));
+    if(nIndex<1){
+        return nullptr;
+    }
+    timeEndStr = remainingLine.left(nIndex).trimmed();
+    remainingLine = remainingLine.mid(nIndex+1);
+
+    timeStart = timeStartStr.toLong();
+    timeEnd = timeEndStr.toLong();
 
     while(1){
         nIndex = remainingLine.indexOf(QChar(','));
@@ -381,9 +397,7 @@ mxArray*  emulator::Application::GetMultipleBranchesFromFileCls2(const QString& 
 
     aInput.push_back(remainingLine.toStdString());
 
-    if( ::pitz::daq::GetMultipleBranchesFromFile(fileName.toStdString().c_str(),aInput,&aOutput) ){
-        return nullptr;
-    }
+    ::pitz::daq::GetMultipleBranchesForTime(timeStart,timeEnd,aInput,&aOutput);
 
     return DataToMatlab(aOutput);
 

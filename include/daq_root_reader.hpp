@@ -29,6 +29,7 @@ struct BranchOutputForUserInfo{
 int  RootInitialize();
 void RootCleanup();
 int  GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_pInput, ::std::list< BranchOutputForUserInfo* >* a_pOutput);
+void GetMultipleBranchesForTime( time_t a_startTime, time_t a_endTime, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput);
 
 }}
 
