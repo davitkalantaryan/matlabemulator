@@ -25,6 +25,8 @@ emulator::MainWindow::MainWindow()
     if(appSettings.contains(KEY_FOR_GEOMETRY)){
         setGeometry(appSettings.value(KEY_FOR_GEOMETRY).toRect());
     }
+
+    //setAttribute(Qt::WA_DeleteOnClose);
 }
 
 
@@ -34,6 +36,14 @@ emulator::MainWindow::~MainWindow()
     QSettings& appSettings = static_cast<QSettings&>(ThisApp);
 
     appSettings.setValue(KEY_FOR_GEOMETRY,geo);
+
+    //ThisApp.MainWindowDestroyedGui();
+}
+
+
+void emulator::MainWindow::closeEvent(QCloseEvent *)
+{
+    ThisApp.MainWindowClosedGui();
 }
 
 

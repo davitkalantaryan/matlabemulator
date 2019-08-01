@@ -18,12 +18,15 @@ public:
     MainWindow();
     ~MainWindow() OVERRIDE ;
 
+private:
+    void closeEvent(QCloseEvent *event) OVERRIDE;
+
 private slots:
     void ExitActionSlot();
 
 private:
-    void moveEvent(QMoveEvent *event);
-    void resizeEvent(QResizeEvent *event);
+    void moveEvent(QMoveEvent *event) OVERRIDE;
+    void resizeEvent(QResizeEvent *event) OVERRIDE;
 
 private:
     CentralWidget   m_centralWidget;

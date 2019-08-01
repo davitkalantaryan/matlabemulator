@@ -15,10 +15,13 @@
 #include <unistd.h>
 #endif
 #include <daq_root_reader.hpp>
+#include <QFile>
+#include <wchar.h>
 
 #ifndef HANDLE_MEM_DEF
 #define HANDLE_MEM_DEF(_memory,...)
 #endif
+
 
 using namespace matlab;
 
@@ -56,6 +59,7 @@ emulator::Application::Application(int& a_argc, char** a_argv)
       QApplication (a_argc,a_argv)
 {
 
+    m_first = m_last = NEWNULLPTR;
     m_vErrorPipes[0]=m_vErrorPipes[1]=0;
     //
     m_originalMessageeHandler = qInstallMessageHandler(&noMessageOutputStatic);
@@ -153,6 +157,36 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engPutVariable,a_inputArgumentsLine.toStdString().c_str(),a_this->m_variablesMap[a_inputArgumentsLine]);
         }
     });
+    m_functionsMap.insert("script",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+
+        a_this->RunScript(a_inputArgumentsLine,a_retArgumetName);
+
+    });
+    m_functionsMap.insert("open",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& /*a_retArgumetName*/){
+        QString scriptPath;
+
+        if(a_this->FindScriptFile(a_inputArgumentsLine,&scriptPath)){
+            CodeEditor* pEditor = new CodeEditor(a_this->m_last,scriptPath);
+            if(!a_this->m_first){
+                a_this->m_first = pEditor;
+            }
+            a_this->m_last = pEditor;
+
+            ::QObject::connect(pEditor,&QWidget::destroyed,a_this,[a_this]{
+                CodeEditor* pEditorInner = STATIC_CAST(CodeEditor*,a_this->sender());
+                qDebug()<<__FUNCTION__;
+                if(pEditorInner==a_this->m_first){
+                    a_this->m_first = NEWNULLPTR;
+                }
+                if(pEditorInner==a_this->m_last){
+                    a_this->m_last = NEWNULLPTR;
+                }
+            });
+
+            pEditor->show();
+        }
+
+    });
     m_functionsMap.insert("help",[](Application* a_this,const QString&,const QString&){
         auto keys = a_this->m_functionsMap.keys();
         for( auto aKey : keys ){
@@ -164,6 +198,14 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
 emulator::Application::~Application()
 {
+    CodeEditor* pEditorNext;
+
+    while(m_first){
+        pEditorNext = m_first->next();
+        delete m_first;
+        m_first = pEditorNext;
+    }
+
     m_calcThread.quit();
     m_calcThread.wait();
 
@@ -181,6 +223,111 @@ emulator::Application::~Application()
     delete m_pSettings;
 
     qInstallMessageHandler(m_originalMessageeHandler);
+}
+
+
+void emulator::Application::MainWindowClosedGui()
+{
+    CodeEditor* pEditorNext;
+
+    while(m_first){
+        pEditorNext = m_first->next();
+        //delete m_first;
+        pEditorNext->close();
+        m_first = pEditorNext;
+    }
+}
+
+
+static const char* s_emulExtensions[] ={
+    ".scr"
+};
+
+static const size_t s_nNumberOfExtensions = sizeof(s_emulExtensions) / sizeof(const char*);
+
+
+bool emulator::Application::FindScriptFile(const QString& a_inputArgumentsLine,QString* a_pScriptPath)
+{
+    QString& scriptPath = *a_pScriptPath;
+    size_t unExtensionIndex, unDirectoryIndex, unDirsCount;
+    bool bExtensionAdded=false;
+
+    //QString scriptName;
+    //qDebug()<<a_inputArgumentsLine << a_retArgumetName;
+
+    for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
+        if(a_inputArgumentsLine.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
+            bExtensionAdded = true;
+            break;
+        }
+    }
+
+    if(bExtensionAdded){
+        if(QFile::exists(a_inputArgumentsLine)){
+            scriptPath  = a_inputArgumentsLine;
+            return true;
+        }
+    }
+    else{
+        for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
+            scriptPath = a_inputArgumentsLine + s_emulExtensions[unExtensionIndex];
+            if(QFile::exists(scriptPath)){
+                return true;
+            }
+        }
+    }
+
+    unDirsCount = m_knownPaths.size();
+    for(unDirectoryIndex=0;unDirectoryIndex<unDirsCount;++unDirectoryIndex){
+        scriptPath = m_knownPaths[unDirectoryIndex] + "/" + a_inputArgumentsLine;
+        if(bExtensionAdded){
+            if(QFile::exists(scriptPath)){
+                return true;
+            }
+        }
+        else{
+            for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
+                scriptPath += s_emulExtensions[unExtensionIndex];
+                if(QFile::exists(scriptPath)){
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
+
+void emulator::Application::RunScript(const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
+{
+    QString scriptPath;
+
+    if(FindScriptFile(a_inputArgumentsLine,&scriptPath)){
+        size_t firstNonEmpty;
+        const wchar_t* cpcNonEmptyLine;
+        QString aCommand;
+        QFile scriptFile(scriptPath);
+
+        if (scriptFile.open(QIODevice::ReadOnly)){
+            const wchar_t* pwcLine;
+            QString line;
+            QTextStream in(&scriptFile);
+            while (!in.atEnd()){
+               line = in.readLine();
+               pwcLine = line.toStdWString().c_str();
+               firstNonEmpty = wcsspn(pwcLine,L" \t");
+               cpcNonEmptyLine = pwcLine + firstNonEmpty;
+               aCommand = QString::fromWCharArray(cpcNonEmptyLine);
+               RunCommand(aCommand);
+            }
+            scriptFile.close();
+        }
+
+    }
+    else{
+        qDebug()<<a_inputArgumentsLine << a_retArgumetName;
+    }
 }
 
 

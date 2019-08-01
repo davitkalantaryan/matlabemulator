@@ -45,7 +45,8 @@ SOURCES += \
     $${PWD}/../../../src/utils/pitz_daq_data_memory_base.cpp            \
     $${PWD}/../../../src/utils/pitz_daq_data_memory_forclient.cpp       \
     $${PWD}/../../../src/utils/pitz_daq_data_entryinfo.cpp              \
-    $${PWD}/../../../src/indexing/pitz_daq_data_indexing.cpp
+    $${PWD}/../../../src/indexing/pitz_daq_data_indexing.cpp            \
+    $${PWD}/../../../src/qt_code_editor/codeeditor.cpp
 
 HEADERS += \
     $${PWD}/../../../src/emulator/matlab_emulator_application_c.hpp     \
@@ -56,7 +57,8 @@ HEADERS += \
     $${PWD}/../../../include/pitz/daq/data/memory/base.hpp              \
     $${PWD}/../../../include/pitz/daq/data/memory/forclient.hpp         \
     $${PWD}/../../../include/pitz/daq/data/entryinfo.hpp                \
-    $${PWD}/../../../include/pitz/daq/data/indexing.hpp
+    $${PWD}/../../../include/pitz/daq/data/indexing.hpp                 \
+    $${PWD}/../../../src/qt_code_editor/codeeditor.hpp
 
 
 OTHER_FILES += \
