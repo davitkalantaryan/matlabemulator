@@ -96,8 +96,8 @@ emulator::Application::Application(int& a_argc, char** a_argv)
     //m_functionsMap.insert("exit",&Application::MatlabOutputSignal);
     //m_functionsMap.insert("exit",&Application::RunCommand2);
 
-    m_functionsMap.insert("exit",[](Application*,const QString&,const QString&)->void{QCoreApplication::quit();});
-    m_functionsMap.insert("matlab",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+    m_functionsMap.insert("exit",CommandStruct("To exit App",[](Application*,const QString&,const QString&)->void{QCoreApplication::quit();}));
+    m_functionsMap.insert("matlab",CommandStruct("To call MATLAB command",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
         char vcOutBuffer[1024];
         ssize_t unReadFromError;
 
@@ -116,21 +116,21 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             emit a_this->MatlabErrorOutputSignal(vcOutBuffer);
         }
 
-    });
-    m_functionsMap.insert("showmatlab",[](Application* a_this,const QString&,const QString&){
+    }));
+    m_functionsMap.insert("showmatlab",CommandStruct("Show embedded MATLAB (does not work on LINUX)",[](Application* a_this,const QString&,const QString&){
         // nReturn = engGetVisible(m_pEngine,&vis);
         CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engSetVisible,true);
-    });
-    m_functionsMap.insert("hidematlab",[](Application* a_this,const QString&,const QString&){
+    }));
+    m_functionsMap.insert("hidematlab",CommandStruct("Hide embedded MATLAB (does not work on LINUX, it is always hidden)",[](Application* a_this,const QString&,const QString&){
         CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engSetVisible,false);
-    });
-    m_functionsMap.insert("list",[](Application* a_this,const QString&,const QString&){
+    }));
+    m_functionsMap.insert("variables",CommandStruct("lists all variables",[](Application* a_this,const QString&,const QString&){
         auto keys = a_this->m_variablesMap.keys();
         for( auto aKey : keys ){
             emit a_this->MatlabOutputSignal(QString("\n")+aKey);
         }
-    });
-    m_functionsMap.insert("getdatafl",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+    }));
+    m_functionsMap.insert("getdatafl",CommandStruct("gets and uncompress root data from specified file",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
         if((!a_inputArgumentsLine.size())||(!a_retArgumetName.size())){
             // make error report
             return;
@@ -140,8 +140,9 @@ emulator::Application::Application(int& a_argc, char** a_argv)
         if(mxData){
             a_this->m_variablesMap.insert(a_retArgumetName,mxData);
         }
-    });
-    m_functionsMap.insert("getdatatm",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+    }));
+    m_functionsMap.insert("getdatatm",CommandStruct("gets data for multiple branches for given time interval",
+                                                    [](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
         if((!a_inputArgumentsLine.size())||(!a_retArgumetName.size())){
             // make error report
             return;
@@ -151,18 +152,21 @@ emulator::Application::Application(int& a_argc, char** a_argv)
         if(mxData){
             a_this->m_variablesMap.insert(a_retArgumetName,mxData);
         }
-    });
-    m_functionsMap.insert("tomatlab",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+    }));
+    m_functionsMap.insert("tomatlab",CommandStruct("put data from program memory to embedded MATLAB memory",
+                                                   [](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
         if(a_this->m_variablesMap.contains(a_inputArgumentsLine)){
             CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engPutVariable,a_inputArgumentsLine.toStdString().c_str(),a_this->m_variablesMap[a_inputArgumentsLine]);
         }
-    });
-    m_functionsMap.insert("script",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+    }));
+    m_functionsMap.insert("script",CommandStruct("Run sequence of commands provided in the script",
+                                                 [](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
 
         a_this->RunScript(a_inputArgumentsLine,a_retArgumetName);
 
-    });
-    m_functionsMap.insert("open",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& /*a_retArgumetName*/){
+    }));
+    m_functionsMap.insert("open",CommandStruct("Open script file for modification",
+                                               [](Application* a_this,const QString& a_inputArgumentsLine,const QString& /*a_retArgumetName*/){
         QString scriptPath;
 
         if(a_this->FindScriptFile(a_inputArgumentsLine,&scriptPath)){
@@ -186,13 +190,25 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             pEditor->show();
         }
 
-    });
-    m_functionsMap.insert("help",[](Application* a_this,const QString&,const QString&){
+    }));
+    m_functionsMap.insert("paths",CommandStruct("Show all known paths",[](Application* a_this,const QString&,const QString&){
+        QString helpLine;
         auto keys = a_this->m_functionsMap.keys();
         for( auto aKey : keys ){
-            emit a_this->MatlabOutputSignal(QString("\n")+aKey);
+            helpLine = QString("\n")+aKey + ":\t" + (a_this->m_functionsMap)[aKey].help ;
+            //emit a_this->MatlabOutputSignal(QString("\n")+aKey);
+            emit a_this->MatlabOutputSignal(helpLine);
         }
-    });
+    }));
+    m_functionsMap.insert("help",CommandStruct("Show this help",[](Application* a_this,const QString&,const QString&){
+        QString helpLine;
+        auto keys = a_this->m_functionsMap.keys();
+        for( auto aKey : keys ){
+            helpLine = QString("\n")+aKey + ":\t" + (a_this->m_functionsMap)[aKey].help ;
+            //emit a_this->MatlabOutputSignal(QString("\n")+aKey);
+            emit a_this->MatlabOutputSignal(helpLine);
+        }
+    }));
 }
 
 
@@ -458,7 +474,7 @@ bool emulator::Application::RunCommand( QString& a_command )
 
 
     if(m_functionsMap.contains(coreCommand)){
-        (*m_functionsMap[coreCommand])(this,inputArgumentsLine,retArgumetName);
+        (*m_functionsMap[coreCommand].clbk)(this,inputArgumentsLine,retArgumetName);
         return true;
     }
 

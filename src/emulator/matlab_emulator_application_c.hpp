@@ -34,9 +34,20 @@ private:
 private:
 };
 
+
+
 class Application : public QApplication
 {
     Q_OBJECT
+    static void CommandDefaultFunction(Application*,const QString&,const QString&){}
+    typedef void (*TypeCommand)(Application*,const QString&,const QString&);
+    struct CommandStruct{
+        TypeCommand clbk;
+        QString  help;
+        CommandStruct():clbk(&CommandDefaultFunction){}
+        CommandStruct(const CommandStruct& a_cM):clbk(a_cM.clbk),help(a_cM.help){}
+        CommandStruct(const QString& a_help, TypeCommand a_clbk):clbk(a_clbk),help(a_help){}
+    };
 public:
     Application(int& argc, char** argv);
     ~Application() OVERRIDE ;
@@ -81,7 +92,7 @@ private:
     QTimer                      m_settingsUpdateTimer;
     QMap< QString, mxArray* >   m_variablesMap;
     //QMap< QString, void (Application::*)(const QString&) >   m_functionsMap;//QMetaMethod
-    QMap< QString, void (*)(Application*,const QString&,const QString&) >   m_functionsMap;//QMetaMethod
+    QMap< QString, CommandStruct >   m_functionsMap;//QMetaMethod
     //QMap< QString, QMetaMethod >   m_functionsMap;
     //QMap< QString, void (*)(const QString&) >   m_functionsMap;//QMetaMethod
     //QMap< QString,::std::function< void(Application&, const QString&) > > m_functionsMap;
