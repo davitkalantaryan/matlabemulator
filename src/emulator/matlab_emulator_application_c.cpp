@@ -3,6 +3,8 @@
 // created on:  2019 Jun 12
 //
 
+//#define USE_QDIR_SEARCH_ENGINE
+
 #include "matlab_emulator_application_c.hpp"
 #include <QRegExp>
 #include <iostream>
@@ -17,6 +19,8 @@
 #include <daq_root_reader.hpp>
 #include <QFile>
 #include <wchar.h>
+#include <QDir>
+#include <QFileInfo>
 
 #ifndef HANDLE_MEM_DEF
 #define HANDLE_MEM_DEF(_memory,...)
@@ -53,6 +57,13 @@ using namespace matlab;
 #define INDX_TO_DISPLAY 2
 
 void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext & a_ctx,const QString &a_message);
+
+static const char* s_emulExtensions[] ={
+    ".scr"
+};
+
+static const size_t s_nNumberOfExtensions = sizeof(s_emulExtensions) / sizeof(const char*);
+
 
 emulator::Application::Application(int& a_argc, char** a_argv)
     :
@@ -191,14 +202,59 @@ emulator::Application::Application(int& a_argc, char** a_argv)
         }
 
     }));
+    m_functionsMap.insert("addpath",CommandStruct("To add new known path",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+        a_this->m_knownPaths.push_back(a_inputArgumentsLine);
+
+    }));
     m_functionsMap.insert("paths",CommandStruct("Show all known paths",[](Application* a_this,const QString&,const QString&){
-        QString helpLine;
-        auto keys = a_this->m_functionsMap.keys();
-        for( auto aKey : keys ){
-            helpLine = QString("\n")+aKey + ":\t" + (a_this->m_functionsMap)[aKey].help ;
-            //emit a_this->MatlabOutputSignal(QString("\n")+aKey);
-            emit a_this->MatlabOutputSignal(helpLine);
+        const size_t unNumberOfPaths(a_this->m_knownPaths.size());
+        size_t i;
+
+        emit a_this->MatlabOutputSignal(QString("\n") + QDir::currentPath() + " (current directory)");
+        for(i=0;i<unNumberOfPaths;++i){
+            emit a_this->MatlabOutputSignal(QString("\n") + a_this->m_knownPaths[i]);
         }
+    }));
+    m_functionsMap.insert("scripts-list",CommandStruct("Show all scripts from all known paths",[](Application* a_this,const QString&,const QString&){
+        const size_t unNumberOfPaths(a_this->m_knownPaths.size());
+        size_t i;
+        QFileInfoList fileInfList;
+        QDir  knownDir;
+        QString filePath;
+        size_t unExtensionIndex;
+
+        knownDir.cd( QDir::currentPath() );
+        fileInfList = knownDir.entryInfoList();
+
+        for(auto fileInfo : fileInfList){
+            if(fileInfo.isFile()){
+                filePath = fileInfo.path();
+
+                for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
+                    if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
+                        emit a_this->MatlabOutputSignal(filePath);
+                    } // if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
+                } // for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
+            } // if(fileInfo.isFile()){
+        } // for(auto fileInfo : fileInfList){
+
+        for(i=0;i<unNumberOfPaths;++i){
+            if( knownDir.cd( a_this->m_knownPaths[i] ) ){
+                fileInfList = knownDir.entryInfoList();
+
+                for(auto fileInfo : fileInfList){
+                    if(fileInfo.isFile()){
+                        filePath = fileInfo.path();
+
+                        for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
+                            if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
+                                emit a_this->MatlabOutputSignal(filePath);
+                            } // if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
+                        } // for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
+                    } // if(fileInfo.isFile()){
+                } // for(auto fileInfo : fileInfList){
+            } // if( knownDir.cd( a_this->m_knownPaths[i] ) ){
+        } // for(i=0;i<unNumberOfPaths;++i){
     }));
     m_functionsMap.insert("help",CommandStruct("Show this help",[](Application* a_this,const QString&,const QString&){
         QString helpLine;
@@ -255,15 +311,11 @@ void emulator::Application::MainWindowClosedGui()
 }
 
 
-static const char* s_emulExtensions[] ={
-    ".scr"
-};
-
-static const size_t s_nNumberOfExtensions = sizeof(s_emulExtensions) / sizeof(const char*);
-
-
 bool emulator::Application::FindScriptFile(const QString& a_inputArgumentsLine,QString* a_pScriptPath)
 {
+#ifdef USE_QDIR_SEARCH_ENGINE
+
+#else  // #ifdef USE_QDIR_SEARCH_ENGINE
     QString& scriptPath = *a_pScriptPath;
     size_t unExtensionIndex, unDirectoryIndex, unDirsCount;
     bool bExtensionAdded=false;
@@ -312,6 +364,7 @@ bool emulator::Application::FindScriptFile(const QString& a_inputArgumentsLine,Q
     }
 
     return false;
+#endif  // #ifdef USE_QDIR_SEARCH_ENGINE
 }
 
 

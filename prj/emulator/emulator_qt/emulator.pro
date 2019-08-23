@@ -29,6 +29,12 @@ LIBS += -leng
 LIBS += -lmat
 LIBS += -lhdf5_hl
 LIBS += -lhdf5
+#LIBS += -L$${PWD}/../../../sys/Nitrogen/lib
+#LIBS += -lpcre
+
+#CONFIG -= RPATH
+#QMAKE_RPATHDIR = /afs/ifh.de/SL/6/x86_64/opt/matlab/R2016b/bin/glnxa64
+#QMAKE_RPATHDIR = $${PWD}/../../../sys/Nitrgen/dll
 
 win32{
 } else {
