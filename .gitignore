@@ -5,6 +5,8 @@
 .tmp/*
 *.dll
 
+/docs/doc/~*
+
 prj/*/*_qt/Makefile
 prj/*/*_qt/Makefile.*
 prj/*/*_qt/*.json
