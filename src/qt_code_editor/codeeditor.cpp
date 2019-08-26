@@ -48,8 +48,11 @@
 **
 ****************************************************************************/
 
-#include <QtWidgets>
+///#include <QtWidgets>
 #include <QKeyEvent>
+#include <QDebug>
+#include <QPainter>
+#include <QTextBlock>
 
 #include "codeeditor.hpp"
 

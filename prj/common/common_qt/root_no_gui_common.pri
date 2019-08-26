@@ -11,7 +11,9 @@ message("!!! root_no_gui_common.pri")
 MYROOT_SYS_DIR = $$system(env | grep ROOT_SYS_DIR)
 
 equals($$MYROOT_SYS_DIR,"") {
-    MYROOT_SYS_DIR = /afs/ifh.de/amd64_rhel50/products/root64/5.28.00
+    #MYROOT_SYS_DIR = /afs/ifh.de/amd64_rhel50/products/root64/5.28.00
+    #MYROOT_SYS_DIR = /export/doocs/opt/root/6.16.00
+    MYROOT_SYS_DIR = /afs/ifh.de/group/pitz/data/ers/sys/$${CODENAME}/opt/root/current
     message("!!! MYROOT_SYS_DIR set in the project file: $$MYROOT_SYS_DIR")
 } else {
     message("!!! MYROOT_SYS_DIR comes from environment: $$MYROOT_SYS_DIR")

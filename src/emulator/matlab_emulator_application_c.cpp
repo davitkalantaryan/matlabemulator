@@ -215,6 +215,18 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             emit a_this->MatlabOutputSignal(QString("\n") + a_this->m_knownPaths[i]);
         }
     }));
+    m_functionsMap.insert("pwd",CommandStruct("Show current directory",[](Application* a_this,const QString&,const QString&){
+
+        emit a_this->MatlabOutputSignal(QString("\n") + QDir::currentPath() );
+
+    }));
+    m_functionsMap.insert("cd",CommandStruct("Change current directory",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+
+        if(!QDir::setCurrent(a_inputArgumentsLine)){
+            emit a_this->MatlabErrorOutputSignal(QString("\nBad directory: ")+a_inputArgumentsLine)    ;
+        }
+
+    }));
     m_functionsMap.insert("scripts-list",CommandStruct("Show all scripts from all known paths",[](Application* a_this,const QString&,const QString&){
         const size_t unNumberOfPaths(a_this->m_knownPaths.size());
         size_t i;
@@ -228,11 +240,11 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
         for(auto fileInfo : fileInfList){
             if(fileInfo.isFile()){
-                filePath = fileInfo.path();
+                filePath = fileInfo.filePath();
 
                 for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
                     if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
-                        emit a_this->MatlabOutputSignal(filePath);
+                        emit a_this->MatlabOutputSignal(QString("\n")+filePath);
                     } // if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
                 } // for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
             } // if(fileInfo.isFile()){
