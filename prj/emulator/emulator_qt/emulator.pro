@@ -37,8 +37,12 @@ LIBS += -lhdf5
 #QMAKE_RPATHDIR = $${PWD}/../../../sys/Nitrgen/dll
 
 win32{
+    SOURCES += \
+        $${PWD}/../../../src/utils/common_system_windows.cpp
 } else {
     LIBS += -lpthread
+    SOURCES += \
+        $${PWD}/../../../src/utils/common_system_unix.cpp
 }
 
 SOURCES += \
@@ -48,7 +52,7 @@ SOURCES += \
     $${PWD}/../../../src/emulator/matlab_emulator_centralwidget.cpp     \
     $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.cpp     \
     $${PWD}/../../../src/croot/daq_root_reader.cpp                      \
-    $${PWD}/../../../src/utils/common_system.cpp                        \
+    $${PWD}/../../../src/utils/common_system_common.cpp                 \
     $${PWD}/../../../src/utils/pitz_daq_data_memory_base.cpp            \
     $${PWD}/../../../src/utils/pitz_daq_data_memory_forclient.cpp       \
     $${PWD}/../../../src/utils/pitz_daq_data_entryinfo.cpp              \
@@ -60,6 +64,7 @@ HEADERS += \
     $${PWD}/../../../src/emulator/matlab_emulator_mainwindow.hpp        \
     $${PWD}/../../../src/emulator/matlab_emulator_centralwidget.hpp     \
     $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.hpp     \
+    $${PWD}/../../../src/utils/common_system_include_private.hpp        \
     $${PWD}/../../../include/common/system.hpp                          \
     $${PWD}/../../../include/daq_root_reader.hpp                        \
     $${PWD}/../../../include/pitz/daq/data/memory/base.hpp              \
