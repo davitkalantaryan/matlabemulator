@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "common_system_include_private.hpp"
+#include <sys/wait.h>
+#include <signal.h>
+#include <thread>
 
 #ifdef SOCKET_ERROR
 #undef SOCKET_ERROR
@@ -146,6 +149,39 @@ readCode::Type TExecHandle_ReadFromOutOrErr(TExecHandle a_handle,void* a_bufferO
 int TExecHandle_WriteToStdIn(TExecHandle a_handle,const void* a_buffer, size_t a_bufferSize)
 {
     return static_cast<int>(::write(a_handle->stdinToWriite,a_buffer,a_bufferSize));
+}
+
+
+static inline void WaiterThreadFunction()
+{
+    //
+}
+
+
+readCode::Type TExecHandle_WatitForEndAndReadFromOutOrErr(TExecHandle a_handle,void* a_bufferOut, size_t a_bufferOutSize,void* a_bufferErr, size_t a_bufferErrSize,size_t* a_pReadSize,int a_timeoutMs)
+{
+    ::std::thread waiterThread;
+    readCode::Type retVal, retFromThread = readCode::RCnone;
+    struct sigaction oldSigaction, newSigAction;
+
+    sigemptyset(&newSigAction.sa_mask);
+    newSigAction.sa_flags = 0;
+    newSigAction.sa_restorer = nullptr;
+    newSigAction.sa_handler = [](int){};
+
+    sigaction(SIGINT,&newSigAction,&oldSigaction);
+
+    waiterThread = ::std::thread()
+
+    retVal = TExecHandle_ReadFromOutOrErr(a_handle,a_bufferOut,a_bufferOutSize,a_bufferErr,a_bufferErrSize,a_pReadSize,a_timeoutMs);
+
+    while(retVal==readCode::RCinterrupted){
+        if(retFromThread != readCode::RCnone){
+            return retFromThread;
+        }
+    }
+
+    return retVal;
 }
 
 
