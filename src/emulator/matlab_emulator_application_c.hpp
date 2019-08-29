@@ -65,6 +65,8 @@ signals:
     void MatlabErrorOutputSignal(const QString& logMsg);
     void UpdateSettingsSignal(QSettings& settings);
 
+    void RunSystemSignal(const QString& systemLine);
+
 
 private:
     static void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
@@ -79,26 +81,29 @@ private slots:
     void RunScript(const QString&,const QString&);
 
 private:
-    CalcThread                  m_calcThread;
+    CalcThread                      m_calcThread;
 
-    QSettings*                  m_pSettings;
-    Engine*                     m_pEngine;
-    uint64_t                    m_isEngineVisible : 1;
-    uint64_t                    m_bitwise64Reserved : 63;
+    QSettings*                      m_pSettings;
+    Engine*                         m_pEngine;
+    uint64_t                        m_isEngineVisible : 1;
+    uint64_t                        m_bitwise64Reserved : 63;
 
-    QtMessageHandler            m_originalMessageeHandler;
-    //char                        m_vcErrorBuffer[1024];
-    int                         m_vErrorPipes[2];
-    QTimer                      m_settingsUpdateTimer;
-    QMap< QString, mxArray* >   m_variablesMap;
+    QtMessageHandler                m_originalMessageeHandler;
+    //char                          m_vcErrorBuffer[1024];
+    int                             m_vErrorPipes[2];
+    QTimer                          m_settingsUpdateTimer;
+    QMap< QString, mxArray* >       m_variablesMap;
     //QMap< QString, void (Application::*)(const QString&) >   m_functionsMap;//QMetaMethod
-    QMap< QString, CommandStruct >   m_functionsMap;//QMetaMethod
+    QMap< QString, CommandStruct >  m_functionsMap;//QMetaMethod
     //QMap< QString, QMetaMethod >   m_functionsMap;
     //QMap< QString, void (*)(const QString&) >   m_functionsMap;//QMetaMethod
     //QMap< QString,::std::function< void(Application&, const QString&) > > m_functionsMap;
     //QMap< QString,decltype ([this](){}) > m_functionsMap;
-    ::std::vector< QString >    m_knownPaths;
-    CodeEditor                  *m_first,*m_last;
+    ::std::vector< QString >        m_knownPaths;
+    CodeEditor                      *m_first,*m_last;
+
+    QThread                         m_workerThread;
+    QObject                         m_objectInWorkerThread;
 };
 
 }} // namespace matlab { namespace  {

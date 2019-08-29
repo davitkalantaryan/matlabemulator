@@ -11,17 +11,21 @@
 
 #include <stddef.h>
 
+#define NUMBER_OF_STANDARD_READ_PIPES    4 // stdoutRead, stderrRead, dataFromChild, controlPipe[0]
+
 namespace common{ namespace system {
 
 typedef struct SExechandle* TExecHandle;
-namespace readCode{enum Type{RCerror=-4,RCtimeout=-3,RCinterrupted=-2,RCselectError=-1,RCnone=0,RCstdout,RCstderr,RCfinished};}
+namespace readCode{enum Type{RCerror=-10,RCpipeClosed=-7,RCreadError=-6,RCnoRecource=-5,RCtimeout=-3,RCinterrupted=-2,RCselectError=-1,RCnone=0,RCstdout,RCstderr,RCdata,RCcontrol,RCexeFinished};}
 //typedef int (*TypeReadFn)(char*,size_t);
 
 
 TExecHandle RunExecutableNoWait(char* argv[]);
-readCode::Type TExecHandle_ReadFromOutOrErr(TExecHandle handle,void* bufferOut, size_t bufferOutSize,void* bufferErr, size_t bufferErrSize,size_t* a_pReadSize,int timeoutMs);
+TExecHandle RunExecutableNoWaitLine(const char* argumentsLine);
+readCode::Type TExecHandle_ReadFromStandardPipesStatic(TExecHandle handle,void* buffers[NUMBER_OF_STANDARD_READ_PIPES],size_t buffersSizes[NUMBER_OF_STANDARD_READ_PIPES],size_t* pReadSize,int timeoutMs);
 int TExecHandle_WriteToStdIn(TExecHandle handle,const void* buffer, size_t bufferSize);
-readCode::Type TExecHandle_WatitForEndAndReadFromOutOrErr(TExecHandle handle,void* bufferOut, size_t bufferOutSize,void* bufferErr, size_t bufferErrSize,size_t* a_pReadSize,int timeoutMs);
+readCode::Type TExecHandle_WatitForEndAndReadFromOutOrErr(TExecHandle handle,void* buffers[NUMBER_OF_STANDARD_READ_PIPES],size_t buffersSizes[NUMBER_OF_STANDARD_READ_PIPES],size_t* pReadSize,int timeoutMs);
+void TExecHandle_WaitAndClearExecutable(TExecHandle handle);
 
 }} // namespace common{ namespace system {
 

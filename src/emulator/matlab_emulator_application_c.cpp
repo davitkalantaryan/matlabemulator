@@ -21,11 +21,13 @@
 #include <wchar.h>
 #include <QDir>
 #include <QFileInfo>
+#include <common/system.hpp>
 
 #ifndef HANDLE_MEM_DEF
 #define HANDLE_MEM_DEF(_memory,...)
 #endif
 
+int CreateProcessToDevNullAndWait2(const char* a_cpcExecuteLine);
 
 using namespace matlab;
 
@@ -227,6 +229,11 @@ emulator::Application::Application(int& a_argc, char** a_argv)
         }
 
     }));
+    m_functionsMap.insert("system",CommandStruct("Starting system command",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+
+        emit a_this->RunSystemSignal(a_inputArgumentsLine);
+
+    }));
     m_functionsMap.insert("scripts-list",CommandStruct("Show all scripts from all known paths",[](Application* a_this,const QString&,const QString&){
         const size_t unNumberOfPaths(a_this->m_knownPaths.size());
         size_t i;
@@ -277,12 +284,93 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             emit a_this->MatlabOutputSignal(helpLine);
         }
     }));
+
+    m_workerThread.start();
+    m_objectInWorkerThread.moveToThread(&m_workerThread);
+
+    ::QObject::connect(this,&Application::RunSystemSignal,&m_workerThread,[this](const QString& a_systemLine){
+#if 0
+        CreateProcessToDevNullAndWait2(a_systemLine.toStdString().c_str());
+#else
+        int i;
+        ::common::system::TExecHandle   pPrcHandle = ::common::system::RunExecutableNoWaitLine(a_systemLine.toStdString().c_str());
+        char vcOutBuffer[1024];
+        char* pcActualReadPoint=vcOutBuffer;
+        size_t unActualReadSize=1024;
+        void* vBuffers[NUMBER_OF_STANDARD_READ_PIPES]={vcOutBuffer,vcOutBuffer,vcOutBuffer,vcOutBuffer};
+        size_t vBuffersSizes[NUMBER_OF_STANDARD_READ_PIPES]={1024,1024,1024,1024};
+        size_t unReadSize;
+        bool bRunWhile=true;
+
+        emit MatlabOutputSignal("\n");
+
+        if(!pPrcHandle){
+            emit MatlabErrorOutputSignal(QString("Unable to execute line: ")+a_systemLine);
+            return;
+        }
+
+        for(i=0;i<NUMBER_OF_STANDARD_READ_PIPES;++i){
+            vBuffers[i] = vcOutBuffer;
+            vBuffersSizes[i]=1024;
+        }
+
+        while(bRunWhile){
+            ::common::system::readCode::Type readReturn = ::common::system::TExecHandle_WatitForEndAndReadFromOutOrErr(pPrcHandle,vBuffers,vBuffersSizes,&unReadSize,-1);
+            switch(readReturn){
+            case ::common::system::readCode::RCstdout:
+                if(pcActualReadPoint[unReadSize]==0){
+                    for(i=0;i<NUMBER_OF_STANDARD_READ_PIPES;++i){
+                        vBuffers[i] = vcOutBuffer;
+                        vBuffersSizes[i]=1024;
+                    }
+                    emit MatlabOutputSignal(vcOutBuffer);
+                }
+                else{
+                    pcActualReadPoint += unReadSize;
+                    unActualReadSize -= unReadSize;
+
+                    for(i=0;i<NUMBER_OF_STANDARD_READ_PIPES;++i){
+                        vBuffers[i] = pcActualReadPoint;
+                        vBuffersSizes[i]=unActualReadSize;
+                    }
+                }
+                break;
+            case ::common::system::readCode::RCstderr:
+                if(pcActualReadPoint[unReadSize]==0){
+                    for(i=0;i<NUMBER_OF_STANDARD_READ_PIPES;++i){
+                        vBuffers[i] = vcOutBuffer;
+                        vBuffersSizes[i]=1024;
+                    }
+                    emit MatlabErrorOutputSignal(vcOutBuffer);
+                }
+                else{
+                    pcActualReadPoint += unReadSize;
+                    unActualReadSize -= unReadSize;
+
+                    for(i=0;i<NUMBER_OF_STANDARD_READ_PIPES;++i){
+                        vBuffers[i] = pcActualReadPoint;
+                        vBuffersSizes[i]=unActualReadSize;
+                    }
+                }
+                break;
+            default:
+                bRunWhile = false;
+                break;
+            }
+        }  // while(bRunWhile){
+
+        TExecHandle_WaitAndClearExecutable(pPrcHandle);
+#endif
+    });
 }
 
 
 emulator::Application::~Application()
 {
     CodeEditor* pEditorNext;
+
+    m_workerThread.quit();
+    m_workerThread.wait();
 
     while(m_first){
         pEditorNext = m_first->next();

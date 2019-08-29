@@ -53,6 +53,7 @@ SOURCES += \
     $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.cpp     \
     $${PWD}/../../../src/croot/daq_root_reader.cpp                      \
     $${PWD}/../../../src/utils/common_system_common.cpp                 \
+    $${PWD}/../../../src/utils/common_createnewprocess_unix.cpp        \
     $${PWD}/../../../src/utils/pitz_daq_data_memory_base.cpp            \
     $${PWD}/../../../src/utils/pitz_daq_data_memory_forclient.cpp       \
     $${PWD}/../../../src/utils/pitz_daq_data_entryinfo.cpp              \

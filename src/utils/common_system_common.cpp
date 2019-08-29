@@ -27,4 +27,18 @@ TExecHandle RunExecutableNoWait(char* a_argv[])
 }
 
 
+
+TExecHandle RunExecutableNoWaitLine(const char* a_argumentsLine)
+{
+    struct SExechandle* pHandle = new struct SExechandle;
+
+    if(RunExecutableNoWaitLineStatic(a_argumentsLine,pHandle)){
+        delete pHandle;
+        return nullptr;
+    }
+
+    return pHandle;
+}
+
+
 }} // namespace common{ namespace system {
