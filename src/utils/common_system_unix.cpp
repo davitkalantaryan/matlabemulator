@@ -17,11 +17,14 @@
 #include <pthread.h>
 #include <alloca.h>
 #include <string>
+#include <common/matlabemulator_compiler_internal.h>
 
 #ifdef SOCKET_ERROR
 #undef SOCKET_ERROR
 #endif
 #define SOCKET_ERROR -1
+
+#define SIGNAL_FOR_THREAD_STOP  SIGUSR1
 
 namespace common{ namespace system {
 
@@ -84,8 +87,8 @@ int RunExecutableNoWaitLineStatic(const char* a_argumentsLine,struct SExechandle
         goto errorReturnPoint;
     }
 
-    a_pHandle->dataFromChild = vnDataFromChild[0];
-    a_pHandle->dataToChild = vnDataToChild[1];
+    a_pHandle->readPipes[DATA_FROM_CHILD_EXE_PIPE].pipe = vnDataFromChild[0];
+    a_pHandle->dataToChild.pipe = vnDataToChild[1];
 
     close(vnDataFromChild[1]);
     close(vnDataToChild[0]);
@@ -127,7 +130,7 @@ errorReturnPoint:
 
 int RunExecutableStatic(char* a_argv[],struct SExechandle* a_pHandle)
 {
-    int vnStdin[2]={-1,-1}, vnStdout[2]={-1,-1}, vnStderr[2]={-1,-1};
+    int vnStdin[2]={-1,-1}, vnStdout[2]={-1,-1}, vnStderr[2]={-1,-1}, vnRemoteControlPipe[2]={-1,-1};
     int stdinCopy,stdoutCopy,stderrCopy;
 
     if(pipe(vnStdin)){
@@ -139,6 +142,10 @@ int RunExecutableStatic(char* a_argv[],struct SExechandle* a_pHandle)
     }
 
     if(pipe(vnStderr)){
+        goto errorReturnPoint;
+    }
+
+    if(pipe(vnRemoteControlPipe)){
         goto errorReturnPoint;
     }
 
@@ -159,6 +166,7 @@ int RunExecutableStatic(char* a_argv[],struct SExechandle* a_pHandle)
         close(vnStdin[1]);
         close(vnStdout[0]);
         close(vnStderr[0]);
+        close(vnRemoteControlPipe[0]);
 
         //fprintf(stderr,"Calling execv argv[0]=%s\n",a_argv[0]);
 #endif
@@ -193,13 +201,16 @@ int RunExecutableStatic(char* a_argv[],struct SExechandle* a_pHandle)
         close(vnStdout[1]);
         close(vnStderr[1]);
 
-        a_pHandle->stdinToWriite = vnStdin[1];
-        a_pHandle->stdoutRead = vnStdout[0];
-        a_pHandle->stderrRead = vnStderr[0];
-        a_pHandle->controlPipe[0] = -1;
-        a_pHandle->controlPipe[1] = -1;
+        a_pHandle->stdinToWriite.pipe = vnStdin[1];
+        a_pHandle->readPipes[STDOUT_EXE_PIPE].pipe = vnStdout[0];
+        a_pHandle->readPipes[STDERR_EXE_PIPE].pipe = vnStderr[0];
+        a_pHandle->remoteControlPipe[ME_READ_PIPE].pipe = vnRemoteControlPipe[0];
+        a_pHandle->remoteControlPipe[ME_WRITE_PIPE].pipe = vnRemoteControlPipe[1];
 
-        a_pHandle->isWaited = 0;
+        // these 3 lines done bu compiler
+        //a_pHandle->controlPipe[0].pipe = -1;
+        //a_pHandle->controlPipe[1].pipe = -1;
+        //a_pHandle->waited = 0;
     }
 
     return 0;
@@ -229,85 +240,123 @@ errorReturnPoint:
         close(vnStderr[1]);
     }
 
+    if(vnRemoteControlPipe[0]>0){
+        close(vnStderr[0]);
+    }
+
+    if(vnRemoteControlPipe[1]>0){
+        close(vnStderr[1]);
+    }
+
     return -1;
+}
+
+
+static void TExecHandle_WaitFinishStatic2(TExecHandle a_handle)
+{
+    if(!LIKELY_VALUE2(a_handle->finished,false)){
+        char vcBuffer[2];
+        ssize_t contrPpeRead ;
+
+        do{
+            contrPpeRead = ::read(a_handle->remoteControlPipe[ME_READ_PIPE].pipe,vcBuffer,1);
+
+            if((contrPpeRead<=0)&&(errno!=EINTR)){
+                a_handle->finished = 1;
+                return;
+            }
+        }
+        while(a_handle->shouldWait );
+
+    }
+}
+
+
+static int TExecHandle_WaitPidStatic2(TExecHandle a_handle)
+{
+    if(!a_handle->waited){
+
+        if(!LIKELY_VALUE2(a_handle->finished,true)){
+            TExecHandle_WaitFinishStatic2(a_handle);
+        }
+
+        if(LIKELY_VALUE2(a_handle->finished,true)){
+            // application is finished and closed the pipe
+            pid_t w;
+            int status;
+
+            do {
+                w = waitpid(a_handle->pid, &status, WUNTRACED | WCONTINUED);
+                if (w == -1) {
+                    if(errno == EINTR){
+                        printf("waitpid: interrupted! handle->shouldWait = %d\n",static_cast<int>(a_handle->shouldWait));
+                        return EINTR;
+                    }
+                    else{
+                        perror("waitpid:");
+                        return -1;
+                    }
+                }
+
+                else if (WIFEXITED(status)) {
+                    printf("exited, status=%d\n", WEXITSTATUS(status));
+                } else if (WIFSIGNALED(status)) {
+                    printf("killed by signal %d\n", WTERMSIG(status));
+                } else if (WIFSTOPPED(status)) {
+                    printf("stopped by signal %d\n", WSTOPSIG(status));
+                } else if (WIFCONTINUED(status)) {
+                    printf("continued\n");
+                }
+            }
+            while (!WIFEXITED(status) && !WIFSIGNALED(status) && a_handle->shouldWait);
+
+            a_handle->waited = 1;
+            if(a_handle->localControlPipeWrite.pipe>0){
+                write(a_handle->localControlPipeWrite.pipe,&status,4);
+            }
+            return WEXITSTATUS(status);
+        }
+
+    }
+
+    return 0;
 }
 
 
 void TExecHandle_WaitAndClearExecutable(TExecHandle a_handle)
 {
-    if(!a_handle->isWaited){
-        pid_t w;
-        int status;
+    TExecHandle_WaitFinishStatic2(a_handle);
+    TExecHandle_WaitPidStatic2(a_handle);
 
-        do {
-            w = waitpid(a_handle->pid, &status, WUNTRACED | WCONTINUED);
-            if (w == -1) {
-                if(errno == EINTR){
-                    printf("waitpid 2: interrupted! handle->shouldWait = %d\n",static_cast<int>(a_handle->shouldWait));
-                    break;
-                }
-                else{
-                    perror("waitpid 2:");
-                    a_handle->retFromThread = readCode::RCerror;
-                    if(a_handle->controlPipe[1]>0){
-                        write(a_handle->controlPipe[1],"1234",4);
-                    }
-                    break;
-                }
-            }
-
-            else if (WIFEXITED(status)) {
-                printf("exited, status=%d\n", WEXITSTATUS(status));
-            } else if (WIFSIGNALED(status)) {
-                printf("killed by signal %d\n", WTERMSIG(status));
-            } else if (WIFSTOPPED(status)) {
-                printf("stopped by signal %d\n", WSTOPSIG(status));
-            } else if (WIFCONTINUED(status)) {
-                printf("continued\n");
-            }
-        }
-        while (!WIFEXITED(status) && !WIFSIGNALED(status));
-    }  // if(!a_handle->isWaited){
-
-#ifndef MAKE_SOME_TESTS
     // int stdinToWriite, stdoutRead, stderrRead, dataToChild, dataFromChild, controlPipe[2];
-    close(a_handle->stdinToWriite);
-    close(a_handle->stdoutRead);
-    close(a_handle->stderrRead);
-    close(a_handle->dataToChild);
-    close(a_handle->dataFromChild);
-
-    if(a_handle->controlPipe[0]>0){
-        close(a_handle->controlPipe[0]);
-    }
-
-    if(a_handle->controlPipe[1]>0){
-        close(a_handle->controlPipe[1]);
-    }
-#endif
+    if(a_handle->stdinToWriite.pipe>0){close(a_handle->stdinToWriite.pipe);}
+    if(a_handle->dataToChild.pipe>0){close(a_handle->dataToChild.pipe);}
+    if(a_handle->localControlPipeWrite.pipe>0){close(a_handle->localControlPipeWrite.pipe);}
+    if(a_handle->remoteControlPipe[ME_READ_PIPE].pipe>0){close(a_handle->remoteControlPipe[ME_READ_PIPE].pipe);}
+    if(a_handle->remoteControlPipe[ME_WRITE_PIPE].pipe>0){close(a_handle->remoteControlPipe[ME_WRITE_PIPE].pipe);}
+    for(int i(0);i<NUMBER_OF_EXE_READ_PIPES;++i)if(a_handle->readPipes[i].pipe>0){close(a_handle->readPipes[i].pipe);}
 
     delete a_handle;
 }
 
 
-readCode::Type TExecHandle_ReadFromStandardPipesStatic(TExecHandle a_handle,  void* a_buffers[NUMBER_OF_STANDARD_READ_PIPES], size_t a_buffersSizes[NUMBER_OF_STANDARD_READ_PIPES], size_t* a_pReadSize, int a_timeoutMs)
+readCode::Type TExecHandle_ReadFromStandardPipesStatic(TExecHandle a_handle,  void* a_buffers[NUMBER_OF_EXE_READ_PIPES], size_t a_buffersSizes[NUMBER_OF_EXE_READ_PIPES], size_t* a_pReadSize, int a_timeoutMs)
 {
     fd_set rfds, efds;
     int nTry, maxsd(0),i;
-    int vcFds[NUMBER_OF_STANDARD_READ_PIPES] = {a_handle->stdoutRead,a_handle->stderrRead,a_handle->dataFromChild,a_handle->controlPipe[0]};
-    readCode::Type finalRetCodes[NUMBER_OF_STANDARD_READ_PIPES] = {readCode::RCstdout,readCode::RCstderr,readCode::RCdata,readCode::RCcontrol};
+    SPipeStruct* vcFds = a_handle->readPipes;
     readCode::Type retCode = readCode::RCerror;
 
     FD_ZERO( &rfds );
     FD_ZERO( &efds );
 
-    for(i=0;i<NUMBER_OF_STANDARD_READ_PIPES;++i){
-        if(vcFds[i]>=0){
-            FD_SET( vcFds[i], &rfds );
-            FD_SET( vcFds[i], &efds );
+    for(i=0;i<NUMBER_OF_EXE_READ_PIPES;++i){
+        if((!vcFds[i].isClosed) && (!vcFds[i].isIsInError) && (vcFds[i].pipe>=0)){
+            FD_SET( vcFds[i].pipe, &rfds );
+            FD_SET( vcFds[i].pipe, &efds );
 
-            if(vcFds[i]>maxsd){
-                maxsd = vcFds[i];
+            if(vcFds[i].pipe>maxsd){
+                maxsd = vcFds[i].pipe;
             }
         }
     }  // for(i=0;i<NUMBER_OF_STANDARD_READ_PIPES;++i){
@@ -342,18 +391,19 @@ readCode::Type TExecHandle_ReadFromStandardPipesStatic(TExecHandle a_handle,  vo
         break;
     }
 
-    for(i=0;i<NUMBER_OF_STANDARD_READ_PIPES;++i){
-        if( (vcFds[i]>=0) && FD_ISSET( vcFds[i], &rfds ) ){
-            ssize_t errRead = read(vcFds[i],a_buffers[i],a_buffersSizes[i]);
+    for(i=0;i<NUMBER_OF_EXE_READ_PIPES;++i){
+        if( (vcFds[i].pipe>=0) && FD_ISSET( vcFds[i].pipe, &rfds ) ){
+            ssize_t errRead = read(vcFds[i].pipe,a_buffers[i],a_buffersSizes[i]);
             if(errRead>0){
                 *a_pReadSize = static_cast<size_t>(errRead);
-                return finalRetCodes[i];
+                return s_finalRetCodes[i];
             }
             else if(!errRead){
-                retCode = readCode::RCpipeClosed;
+                vcFds[i].isClosed = 1;
             }
             else{
-                retCode = readCode::RCreadError;
+                vcFds[i].isIsInError = 1;
+                retCode = readCode::RCreadError2;
             }
         }
     }
@@ -364,81 +414,42 @@ readCode::Type TExecHandle_ReadFromStandardPipesStatic(TExecHandle a_handle,  vo
 
 int TExecHandle_WriteToStdIn(TExecHandle a_handle,const void* a_buffer, size_t a_bufferSize)
 {
-    return static_cast<int>(::write(a_handle->stdinToWriite,a_buffer,a_bufferSize));
+    return static_cast<int>(::write(a_handle->stdinToWriite.pipe,a_buffer,a_bufferSize));
 }
 
-#ifndef MAKE_SOME_TESTS
 static void* WaiterThreadFunction(void* a_pHandle)
 {
     TExecHandle a_handle = static_cast<TExecHandle>(a_pHandle);
-    pid_t w;
-    int status;
+    TExecHandle_WaitPidStatic2(a_handle);
 
-    do {
-        w = waitpid(a_handle->pid, &status, WUNTRACED | WCONTINUED);
-        if (w == -1) {
-            if(errno == EINTR){
-                printf("waitpid 1: interrupted! handle->shouldWait = %d\n",static_cast<int>(a_handle->shouldWait));
-                fflush(stdout);
-                a_handle->retFromThread = readCode::RCinterrupted;
-                return reinterpret_cast<void*>(EINTR);
-            }
-            else{
-                perror("waitpid 1:");
-                a_handle->retFromThread = readCode::RCerror;
-                if(a_handle->controlPipe[1]>0){
-                    write(a_handle->controlPipe[1],"1234",4);
-                }
-                a_handle->retFromThread = readCode::RCerror;
-                return reinterpret_cast<void*>(EXIT_FAILURE);
-            }
-
-        }
-
-        else if (WIFEXITED(status)) {
-            printf("exited, status=%d\n", WEXITSTATUS(status));
-        } else if (WIFSIGNALED(status)) {
-            printf("killed by signal %d\n", WTERMSIG(status));
-        } else if (WIFSTOPPED(status)) {
-            printf("stopped by signal %d\n", WSTOPSIG(status));
-        } else if (WIFCONTINUED(status)) {
-            printf("continued\n");
-        }
-    }
-    while (!WIFEXITED(status) && !WIFSIGNALED(status) && a_handle->shouldWait);
-
-    a_handle->isWaited = 1;
-    a_handle->retFromThread = readCode::RCexeFinished;
-    if(a_handle->controlPipe[1]>0){
-        write(a_handle->controlPipe[1],"1234",4);
-    }
     return nullptr;
 }
-#endif
 
 
-readCode::Type TExecHandle_WatitForEndAndReadFromOutOrErr(TExecHandle a_handle,void* a_buffers[NUMBER_OF_STANDARD_READ_PIPES],size_t a_buffersSizes[NUMBER_OF_STANDARD_READ_PIPES],size_t* a_pReadSize,int a_timeoutMs)
+readCode::Type TExecHandle_WatitForEndAndReadFromOutOrErr(TExecHandle a_handle,void* a_buffers[NUMBER_OF_EXE_READ_PIPES],size_t a_buffersSizes[NUMBER_OF_EXE_READ_PIPES],size_t* a_pReadSize,int a_timeoutMs)
 {    
-#ifndef MAKE_SOME_TESTS
     int nRet;
     pthread_t waiterThread = static_cast<pthread_t>(0);
     readCode::Type retVal;
     struct sigaction oldSigaction, newSigAction;
-
-    a_handle->retFromThread = readCode::RCnone;
 
     sigemptyset(&newSigAction.sa_mask);
     newSigAction.sa_flags = 0;
     newSigAction.sa_restorer = nullptr;
     newSigAction.sa_handler = [](int){};
 
-    sigaction(SIGINT,&newSigAction,&oldSigaction);
+    sigaction(SIGNAL_FOR_THREAD_STOP,&newSigAction,&oldSigaction);
 
-    if(a_handle->controlPipe[0]<0){
-        if(pipe(a_handle->controlPipe)){
+    if(a_handle->localControlPipeWrite.pipe<0){
+        int vcControlPipe[2];
+        //if(pipe(a_handle->controlPipe)){
+        if(pipe(vcControlPipe)){
             retVal = readCode::RCnoRecource;
             goto returnPoint;
         }
+
+        a_handle->readPipes[CONTROL_RD_EXE_PIPE].pipe = vcControlPipe[0];
+        a_handle->localControlPipeWrite.pipe = vcControlPipe[1];
     }
     a_handle->shouldWait=1;
     nRet = pthread_create(&waiterThread,nullptr,&WaiterThreadFunction,a_handle);
@@ -450,59 +461,16 @@ readCode::Type TExecHandle_WatitForEndAndReadFromOutOrErr(TExecHandle a_handle,v
 
     retVal = TExecHandle_ReadFromStandardPipesStatic(a_handle,a_buffers,a_buffersSizes,a_pReadSize,a_timeoutMs);
 
-    if(retVal==readCode::RCinterrupted){
-        if(a_handle->retFromThread != readCode::RCnone){
-            retVal =  a_handle->retFromThread;
-            goto returnPoint;
-        }
-    }
-
     a_handle->shouldWait = 0;
-    pthread_kill(waiterThread,SIGINT);
+    pthread_kill(waiterThread,SIGNAL_FOR_THREAD_STOP);
+    ::write(a_handle->remoteControlPipe[ME_WRITE_PIPE].pipe,"o",1);
 
 returnPoint:
     if(waiterThread){
         pthread_join(waiterThread,nullptr);
     }
-    sigaction(SIGINT,&oldSigaction,nullptr);
+    sigaction(SIGNAL_FOR_THREAD_STOP,&oldSigaction,nullptr);
     return retVal;
-#else
-    pid_t w;
-    int status;
-    struct sigaction newSigAction;
-
-    sigemptyset(&newSigAction.sa_mask);
-    newSigAction.sa_flags = 0;
-    newSigAction.sa_restorer = nullptr;
-    newSigAction.sa_handler = SIG_DFL;
-    sigaction(SIGCHLD,&newSigAction,nullptr);
-
-    do {
-        w = waitpid(a_handle->pid, &status, WUNTRACED | WCONTINUED);
-        if (w == -1) {
-            perror("waitpid 1:");
-            a_handle->retFromThread = readCode::RCerror;
-            if(a_handle->controlPipe[1]>0){
-                write(a_handle->controlPipe[1],"1234",4);
-            }
-            return readCode::RCerror;
-
-        }
-
-        else if (WIFEXITED(status)) {
-            printf("exited, status=%d\n", WEXITSTATUS(status));
-        } else if (WIFSIGNALED(status)) {
-            printf("killed by signal %d\n", WTERMSIG(status));
-        } else if (WIFSTOPPED(status)) {
-            printf("stopped by signal %d\n", WSTOPSIG(status));
-        } else if (WIFCONTINUED(status)) {
-            printf("continued\n");
-        }
-    }
-    while (!WIFEXITED(status) && !WIFSIGNALED(status) && a_handle->shouldWait);
-
-    return readCode::RCexeFinished;
-#endif
 }
 
 

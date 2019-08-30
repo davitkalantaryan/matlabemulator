@@ -19,6 +19,8 @@
 #include <cpp11+/common_defination.h>
 #include <vector>
 #include "../qt_code_editor/codeeditor.hpp"
+#include <common/system.hpp>
+#include <string>
 
 namespace matlab { namespace emulator {
 
@@ -58,11 +60,23 @@ public:
 
     void MainWindowClosedGui();
 
+    bool IsSystemRunning()const;
+    bool IsUsedAsStdin()const;
+    void WriteToExeStdin(const QString& a_str);
+
+private:
+    //::common::system::TExecHandle IncreaseUsage();
+    //void  DecreaseUsageOfSysHandle( ::common::system::TExecHandle handle );
+    bool  IncreaseUsage();
+    void  DecreaseUsageOfSysHandle(  );
+
 private:
 signals:
     void NewLoggingReadySignal(QtMsgType logType, const QString& logMsg);
-    void MatlabOutputSignal(const QString& logMsg);
-    void MatlabErrorOutputSignal(const QString& logMsg);
+    void MatlabOutputSignal2(const QString& logMsg);
+    void ExeOutputSignal2(const QString& logMsg);
+    void MatlabErrorOutputSignal2(const QString& logMsg);
+    void ExeErrorOutputSignal2(const QString& logMsg);
     void UpdateSettingsSignal(QSettings& settings);
 
     void RunSystemSignal(const QString& systemLine);
@@ -76,6 +90,7 @@ private:
     mxArray*  GetMultipleBranchesFromFileCls(const QString& argumentsLine);
     mxArray*  GetMultipleBranchesForTimeInterval(const QString& a_argumentsLine);
     bool FindScriptFile(const QString& inputName,QString* scriptPath);
+    void    HandleLastStoredData(::common::system::readCode::Type type, const char* buffer, size_t size);
 
 private slots:
     void RunScript(const QString&,const QString&);
@@ -102,8 +117,12 @@ private:
     ::std::vector< QString >        m_knownPaths;
     CodeEditor                      *m_first,*m_last;
 
+    ::common::system::TExecHandle   m_pPrcHandle;
     QThread                         m_workerThread;
     QObject                         m_objectInWorkerThread;
+    uint64_t                        m_isAllowedToUse : 1;
+    uint64_t                        m_isSystemRunning : 1;
+    uint64_t                        m_numberOfUsers : 10;
 };
 
 }} // namespace matlab { namespace  {

@@ -10,6 +10,8 @@
 #include <iostream>
 #include "matlab_emulator_application.hpp"
 #include <utility>
+#include <common/matlabemulator_compiler_internal.h>
+#include <QDebug>
 
 using namespace matlab;
 
@@ -23,6 +25,7 @@ using namespace matlab;
 
 emulator::CommandPrompt::CommandPrompt()
 {
+    m_lastlyAsStdin = 0;
     m_lastItemSet = 0;
     QSettings& aSettings = static_cast<QSettings&>(*ThisAppPtr);
 
@@ -31,15 +34,35 @@ emulator::CommandPrompt::CommandPrompt()
     //}
     m_commandsList.SetList(aSettings.value(COMMANDS,QList<QVariant>()).toList());
 
-    ::QObject::connect(ThisAppPtr,&Application::MatlabOutputSignal,this,[this](const QString& a_matlabOut){
+    ::QObject::connect(ThisAppPtr,&Application::MatlabOutputSignal2,this,[this](const QString& a_matlabOut){
         moveCursor(QTextCursor::End);
         insertPlainText(a_matlabOut);
     });
 
-    ::QObject::connect(ThisAppPtr,&Application::MatlabErrorOutputSignal,this,[this](const QString& a_matlabOut){
+    ::QObject::connect(ThisAppPtr,&Application::MatlabErrorOutputSignal2,this,[this](const QString& a_matlabOut){
         moveCursor(QTextCursor::End);
         setTextColor(QColor(255,0,0));
         append(a_matlabOut);
+        moveCursor(QTextCursor::End);
+        setTextColor(QColor(0,0,0));
+    });
+
+    ::QObject::connect(ThisAppPtr,&Application::ExeOutputSignal2,this,[this](const QString& a_matlabOut){
+        qDebug()<<a_matlabOut;
+        moveCursor(QTextCursor::End);
+        insertPlainText(a_matlabOut);
+        moveCursor(QTextCursor::End);
+        m_nStdinCursorPossitionAll = textCursor().block().position();
+    });
+
+    ::QObject::connect(ThisAppPtr,&Application::ExeErrorOutputSignal2,this,[this](const QString& a_matlabOut){
+        qDebug()<<a_matlabOut;
+        moveCursor(QTextCursor::End);
+        setTextColor(QColor(255,0,0));
+        append(a_matlabOut);
+        //insertPlainText(a_matlabOut);
+        moveCursor(QTextCursor::End);
+        m_nStdinCursorPossitionAll = textCursor().block().position();
         setTextColor(QColor(0,0,0));
     });
 
@@ -60,51 +83,82 @@ emulator::CommandPrompt::~CommandPrompt()
 }
 
 
-bool emulator::CommandPrompt::ShouldIgnoreKeyEvent(QKeyEvent* a_keyEvent)const
+bool emulator::CommandPrompt::ShouldIgnoreKeyEvent(bool a_isKeyRelease, QKeyEvent* a_keyEvent)
 {
     Qt::Key aKey = static_cast<Qt::Key>(a_keyEvent->key());
+    //*a_pbIsSystemRunning =
 
-    switch(aKey){
-    case Qt::Key_Enter:case Qt::Key_Return:
-    case Qt::Key_Up: case Qt::Key_Down:
-        return true;
-    case Qt::Key_Backspace:{
-        QTextCursor aCursor = textCursor();
-        int nCursorPossitionAll = aCursor.position();
-        int nTextBlockFirstPossition = aCursor.block().position();
-        int nCursorPossition = nCursorPossitionAll - nTextBlockFirstPossition;
+    if(LIKELY_VALUE2(ThisAppPtr->IsUsedAsStdin(),false)){
+        if(!m_lastlyAsStdin){
+            QTextCursor aCursor = textCursor();
+            //m_nStdinCursorPossitionAll = aCursor.position();
+            m_nStdinCursorPossitionAll = aCursor.block().position();
+            m_lastlyAsStdin = 1;
+        }
 
-        switch(nCursorPossition){
-        case 1: case 2:{
-            QString lineText = aCursor.block().text();
-            if(lineText.at(nCursorPossition-1)==QChar('>')){
-                return true;
+        if(a_isKeyRelease){
+            switch(aKey){
+            case Qt::Key_Enter:case Qt::Key_Return:{
+                QTextCursor aCursor = textCursor();
+                QTextBlock textBlock = aCursor.block();
+                //int nCursorPossitionAll = aCursor.position();
+                //int nCursorPossitionAll = textBlock.position();
+                QString lineText = textBlock.text();
+                QString strCommand = lineText.mid(m_nStdinCursorPossitionAll);
+                ThisAppPtr->WriteToExeStdin(strCommand);
+                m_nStdinCursorPossitionAll = 0;
+            }break;
+            default:
+                break;
             }
+        }  // if(a_isKeyRelease){
+
+        return false;
+    }
+    else{
+
+        switch(aKey){
+        case Qt::Key_Enter:case Qt::Key_Return:
+        case Qt::Key_Up: case Qt::Key_Down:
+            return true;
+        case Qt::Key_Backspace:{
+            QTextCursor aCursor = textCursor();
+            int nCursorPossitionAll = aCursor.position();
+            int nTextBlockFirstPossition = aCursor.block().position();
+            int nCursorPossition = nCursorPossitionAll - nTextBlockFirstPossition;
+
+            switch(nCursorPossition){
+            case 1: case 2:{
+                QString lineText = aCursor.block().text();
+                if(lineText.at(nCursorPossition-1)==QChar('>')){
+                    return true;
+                }
+            }break;
+            default:
+                break;
+            }  // switch(nCursorPossition){
+        }break;
+        case Qt::Key_Delete:{
+            QTextCursor aCursor = textCursor();
+            int nCursorPossitionAll = aCursor.position();
+            int nTextBlockFirstPossition = aCursor.block().position();
+            int nCursorPossition = nCursorPossitionAll - nTextBlockFirstPossition;
+
+            switch(nCursorPossition){
+            case 0: case 1:{
+                QString lineText = aCursor.block().text();
+                if(lineText.at(nCursorPossition-1)==QChar('>')){
+                    return true;
+                }
+            }break;
+            default:
+                break;
+            }  // switch(nCursorPossition){
         }break;
         default:
             break;
-        }  // switch(nCursorPossition){
-    }break;
-    case Qt::Key_Delete:{
-        QTextCursor aCursor = textCursor();
-        int nCursorPossitionAll = aCursor.position();
-        int nTextBlockFirstPossition = aCursor.block().position();
-        int nCursorPossition = nCursorPossitionAll - nTextBlockFirstPossition;
-
-        switch(nCursorPossition){
-        case 0: case 1:{
-            QString lineText = aCursor.block().text();
-            if(lineText.at(nCursorPossition-1)==QChar('>')){
-                return true;
-            }
-        }break;
-        default:
-            break;
-        }  // switch(nCursorPossition){
-    }break;
-    default:
-        break;
-    }  // switch(aKey){
+        }  // switch(aKey){
+    }
 
     return false;
 }
@@ -112,7 +166,7 @@ bool emulator::CommandPrompt::ShouldIgnoreKeyEvent(QKeyEvent* a_keyEvent)const
 
 void emulator::CommandPrompt::keyPressEvent(QKeyEvent* a_keyEvent)
 {
-    if(!ShouldIgnoreKeyEvent(a_keyEvent)){
+    if(!ShouldIgnoreKeyEvent(false,a_keyEvent)){
         BASE_CLASS::keyPressEvent(a_keyEvent);
     }
 }
@@ -120,10 +174,11 @@ void emulator::CommandPrompt::keyPressEvent(QKeyEvent* a_keyEvent)
 
 void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
 {
-    if(ShouldIgnoreKeyEvent(a_keyEvent)){
+    if(ShouldIgnoreKeyEvent(true,a_keyEvent)){
         Qt::Key aKey = static_cast<Qt::Key>(a_keyEvent->key());
         switch(aKey){
         case Qt::Key_Enter:case Qt::Key_Return:{
+            bool bIsSystemRunning;
             QTextCursor aCursor = textCursor();
             QString lineText = aCursor.block().text();
             if(lineText.size()>2){ // todo: make this better, check the case of multiline command
@@ -136,8 +191,11 @@ void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
                 m_commandsList.AddNewToTheFront(strCommand);
                 m_lastItemSet=0;
             }
-            append(">>");
-            moveCursor(QTextCursor::End);
+            bIsSystemRunning = ThisAppPtr->IsSystemRunning();
+            if(!LIKELY_VALUE2(bIsSystemRunning,false)){
+                append(">>");
+                moveCursor(QTextCursor::End);
+            }
         }break;
         case Qt::Key_Up:{
 

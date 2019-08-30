@@ -45,7 +45,7 @@ public:
     ~CommandPrompt() OVERRIDE ;
 
 private:
-    bool ShouldIgnoreKeyEvent(QKeyEvent* keyEvent)const;
+    bool ShouldIgnoreKeyEvent(bool isKeyRelease, QKeyEvent* keyEvent);
 
 private:
     void keyPressEvent(QKeyEvent* keyEvent) OVERRIDE;
@@ -54,7 +54,9 @@ private:
 private:
     RingList                                m_commandsList;
     BASE_LIST< QVariant >::const_iterator   m_lastItem;
+    int                                     m_nStdinCursorPossitionAll;
     uint64_t                                m_lastItemSet : 1;
+    uint64_t                                m_lastlyAsStdin : 1;
 };
 
 }} // namespace matlab { namespace  {

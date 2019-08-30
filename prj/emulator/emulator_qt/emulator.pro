@@ -67,6 +67,7 @@ HEADERS += \
     $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.hpp     \
     $${PWD}/../../../src/utils/common_system_include_private.hpp        \
     $${PWD}/../../../include/common/system.hpp                          \
+    $${PWD}/../../../include/common/matlabemulator_compiler_internal.h  \
     $${PWD}/../../../include/daq_root_reader.hpp                        \
     $${PWD}/../../../include/pitz/daq/data/memory/base.hpp              \
     $${PWD}/../../../include/pitz/daq/data/memory/forclient.hpp         \

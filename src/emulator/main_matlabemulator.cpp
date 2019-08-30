@@ -19,10 +19,9 @@ int main(int a_argc, char* a_argv[])
 
     qRegisterMetaType<QtMsgType>( "QtMsgType" );
 
-    ::std::string systemString = ::std::string("ldd ") + a_argv[0] + ::std::string(" >| ~/dev/matlabemulator/prj/emulator/emulator_qt/aaa.txt");
+    //::std::string systemString = ::std::string("ldd ") + a_argv[0] + ::std::string(" >| ~/dev/matlabemulator/prj/emulator/emulator_qt/aaa.txt");
     //::std::string systemString = ::std::string("ldd ") + a_argv[0] + ::std::string(" >| aaa.txt");
-
-    system(systemString.c_str());
+    //system(systemString.c_str());
 
     matlab::emulator::Application app(a_argc,a_argv);
 
