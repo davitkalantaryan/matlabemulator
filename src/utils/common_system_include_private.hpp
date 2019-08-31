@@ -36,10 +36,10 @@ struct SExechandle{
     pid_t   pid;
     SPipeStruct readPipes[NUMBER_OF_EXE_READ_PIPES], stdinToWriite, dataToChild, localControlPipeWrite, remoteControlPipe[2];
     //readCode::Type retFromThread;
-    uint64_t  finished : 1;
+    //uint64_t  finished : 1;
     uint64_t  waited : 1;
     uint64_t  shouldWait : 1;
-    SExechandle(){this->pid=-1;this->waited=this->finished=0;this->shouldWait=1;}
+    SExechandle(){this->pid=-1;this->waited=0;this->shouldWait=1;}
 #endif
 };
 

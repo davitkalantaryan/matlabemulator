@@ -33,7 +33,10 @@
 namespace common{ namespace system {
 
 typedef struct SExechandle* TExecHandle;
-namespace readCode{enum Type{RCerror=-10,RCreadError2=-6,RCnoRecource=-5,RCtimeout=-3,RCinterrupted=-2,RCselectError=-1,RCnone=0,RCstdout,RCstderr,RCdata,RCcontrol,RCexeFinished2};}
+namespace readCode{enum Type{
+    RCerror=-10,RCreadError2=-6,RCnoRecource=-5,RCtimeout=-3,RCinterrupted=-2,RCselectError=-1,
+    RCnone=0,RCstdout,RCstderr,RCdata=4,RCcontrol=8,RCallPipesInerror=16
+};}
 //typedef int (*TypeReadFn)(char*,size_t);
 
 static const readCode::Type s_finalRetCodes[NUMBER_OF_EXE_READ_PIPES] = {readCode::RCstdout,readCode::RCstderr,readCode::RCdata,readCode::RCcontrol};
@@ -45,6 +48,7 @@ readCode::Type TExecHandle_ReadFromStandardPipesStatic(TExecHandle handle,void* 
 int TExecHandle_WriteToStdIn(TExecHandle handle,const void* buffer, size_t bufferSize);
 readCode::Type TExecHandle_WatitForEndAndReadFromOutOrErr(TExecHandle handle,void* buffers[NUMBER_OF_EXE_READ_PIPES],size_t buffersSizes[NUMBER_OF_EXE_READ_PIPES],size_t* pReadSize,int timeoutMs);
 void TExecHandle_WaitAndClearExecutable(TExecHandle handle);
+bool TExecHandle_IsExeFinished(TExecHandle handle);
 
 }} // namespace common{ namespace system {
 

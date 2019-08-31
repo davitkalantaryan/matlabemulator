@@ -18,8 +18,10 @@ int main(int a_argc, char* a_argv[])
     }
 
     ::std::cout << ::std::endl;
+    fflush(stdout);
 
-    ::std::cerr << "Some test error output\n\n";
+    ::std::cerr << "Some test error output";
+    fflush(stderr);
 
     ::std::cout << "Print string to see the echo. String: "; fflush(stdout);
     ::std::cin >> stringFromUser;

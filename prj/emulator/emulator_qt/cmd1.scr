@@ -1,6 +1,6 @@
 matlab(figure)
 help
-help
+#help
 matlab(figure(2))
 help
 # test

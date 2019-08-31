@@ -15,7 +15,7 @@
 #define pipe(_pfds) _pipe((_pfds),256,O_BINARY)
 #else
 #include <unistd.h>
-#define SleepEx(_x) usleep(1000*(_x))
+#define SleepEx(_x,_isAlertable) usleep(1000*(_x))
 #endif
 #include <daq_root_reader.hpp>
 #include <QFile>
@@ -23,6 +23,8 @@
 #include <QDir>
 #include <QFileInfo>
 #include <common/matlabemulator_compiler_internal.h>
+#include <signal.h>
+
 
 #ifndef HANDLE_MEM_DEF
 #define HANDLE_MEM_DEF(_memory,...)
@@ -74,7 +76,7 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 {
     m_pPrcHandle = nullptr;
     m_isAllowedToUse = 0;
-    m_isSystemRunning = 0;
+    m_isCommandRunning2 = 0;
     m_numberOfUsers = 0;
     m_first = m_last = NEWNULLPTR;
     m_vErrorPipes[0]=m_vErrorPipes[1]=0;
@@ -92,8 +94,6 @@ emulator::Application::Application(int& a_argc, char** a_argv)
     QSettings::Scope scp = m_pSettings->scope();
     QString filePath = m_pSettings->fileName();
     qDebug()<<fmt<<scp<<filePath;
-
-    m_calcThread.start();
 
     OpenOrReopenMatEngine();
 
@@ -124,13 +124,13 @@ emulator::Application::Application(int& a_argc, char** a_argv)
         CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engEvalString,a_inputArgumentsLine.toStdString().c_str());
         if(vcOutBuffer[INDX_TO_DISPLAY]){
             vcOutBuffer[INDX_TO_DISPLAY]='\n';
-            emit a_this->MatlabOutputSignal2(&vcOutBuffer[INDX_TO_DISPLAY]);
+            emit a_this->InsertOutputSignal(&vcOutBuffer[INDX_TO_DISPLAY]);
         }
         unReadFromError = a_this->ReadMatlabErrorPipe(vcOutBuffer,1023);
 
         if(unReadFromError>0){
             vcOutBuffer[unReadFromError]=0;
-            emit a_this->MatlabErrorOutputSignal2(vcOutBuffer);
+            emit a_this->InsertErrorSignal(vcOutBuffer);
         }
 
     }));
@@ -142,9 +142,11 @@ emulator::Application::Application(int& a_argc, char** a_argv)
         CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engSetVisible,false);
     }));
     m_functionsMap.insert("variables",CommandStruct("lists all variables",[](Application* a_this,const QString&,const QString&){
+        QString numbOfVars = QString("\nNumberOfVariables=") + QString::number(a_this->m_variablesMap.size());
         auto keys = a_this->m_variablesMap.keys();
+        emit a_this->InsertOutputSignal(numbOfVars);
         for( auto aKey : keys ){
-            emit a_this->MatlabOutputSignal2(QString("\n")+aKey);
+            emit a_this->InsertOutputSignal(QString("\n'")+aKey+"'");
         }
     }));
     m_functionsMap.insert("getdatafl",CommandStruct("gets and uncompress root data from specified file",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
@@ -172,8 +174,14 @@ emulator::Application::Application(int& a_argc, char** a_argv)
     }));
     m_functionsMap.insert("tomatlab",CommandStruct("put data from program memory to embedded MATLAB memory",
                                                    [](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+        //qDebug()<< "varSize=" << a_this->m_variablesMap.size() << "; keys=" << a_this->m_variablesMap.keys();
         if(a_this->m_variablesMap.contains(a_inputArgumentsLine)){
             CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engPutVariable,a_inputArgumentsLine.toStdString().c_str(),a_this->m_variablesMap[a_inputArgumentsLine]);
+        }
+        else{
+            // InsertErrorSignal
+            QString errStr = QString("\nVariable with name \"") + a_inputArgumentsLine + QString("\" can not be found!");
+            emit a_this->InsertErrorSignal(errStr);
         }
     }));
     m_functionsMap.insert("script",CommandStruct("Run sequence of commands provided in the script",
@@ -216,27 +224,42 @@ emulator::Application::Application(int& a_argc, char** a_argv)
         const size_t unNumberOfPaths(a_this->m_knownPaths.size());
         size_t i;
 
-        emit a_this->MatlabOutputSignal2(QString("\n") + QDir::currentPath() + " (current directory)");
+        emit a_this->InsertOutputSignal(QString("\n") + QDir::currentPath() + " (current directory)");
         for(i=0;i<unNumberOfPaths;++i){
-            emit a_this->MatlabOutputSignal2(QString("\n") + a_this->m_knownPaths[i]);
+            emit a_this->InsertOutputSignal(QString("\n") + a_this->m_knownPaths[i]);
         }
     }));
     m_functionsMap.insert("pwd",CommandStruct("Show current directory",[](Application* a_this,const QString&,const QString&){
 
-        emit a_this->MatlabOutputSignal2(QString("\n") + QDir::currentPath() );
+        emit a_this->InsertOutputSignal(QString("\n") + QDir::currentPath() );
 
     }));
     m_functionsMap.insert("cd",CommandStruct("Change current directory",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
 
         if(!QDir::setCurrent(a_inputArgumentsLine)){
-            emit a_this->MatlabErrorOutputSignal2(QString("\nBad directory: ")+a_inputArgumentsLine)    ;
+            emit a_this->InsertOutputSignal(QString("\nBad directory: ")+a_inputArgumentsLine)    ;
         }
 
     }));
-    m_functionsMap.insert("system",CommandStruct("Starting system command",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+    m_functionsMap.insert("system-out",CommandStruct("Starting system command. If return variable provided the stdout is saved there",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
 
-        a_this->m_isSystemRunning = 1;
-        emit a_this->RunSystemSignal(a_inputArgumentsLine);
+        // todo: DK
+        a_this->m_isCommandRunning2 = 2;
+        emit a_this->RunSystemOutSignal(a_inputArgumentsLine,a_retArgumetName);
+
+    }));
+    m_functionsMap.insert("system-err",CommandStruct("Starting system command. If return variable provided the stderr is saved there",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+
+        // todo: DK
+        a_this->m_isCommandRunning2 = 2;
+        emit a_this->RunSystemErrSignal(a_inputArgumentsLine,a_retArgumetName);
+
+    }));
+    m_functionsMap.insert("system-both",CommandStruct("Starting system command. If return variable provided the stdout and stderr is saved there",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+
+        // todo: DK
+        a_this->m_isCommandRunning2 = 2;
+        emit a_this->RunSystemBothSignal(a_inputArgumentsLine,a_retArgumetName);
 
     }));
     m_functionsMap.insert("scripts-list",CommandStruct("Show all scripts from all known paths",[](Application* a_this,const QString&,const QString&){
@@ -256,7 +279,7 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
                 for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
                     if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
-                        emit a_this->MatlabOutputSignal2(QString("\n")+filePath);
+                        emit a_this->InsertOutputSignal(QString("\n")+filePath);
                     } // if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
                 } // for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
             } // if(fileInfo.isFile()){
@@ -268,11 +291,11 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
                 for(auto fileInfo : fileInfList){
                     if(fileInfo.isFile()){
-                        filePath = fileInfo.path();
+                        filePath = fileInfo.filePath();
 
                         for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
                             if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
-                                emit a_this->MatlabOutputSignal2(filePath);
+                                emit a_this->InsertOutputSignal(QString("\n")+filePath);
                             } // if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
                         } // for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
                     } // if(fileInfo.isFile()){
@@ -280,72 +303,39 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             } // if( knownDir.cd( a_this->m_knownPaths[i] ) ){
         } // for(i=0;i<unNumberOfPaths;++i){
     }));
+    m_functionsMap.insert("clear-prpt",CommandStruct("To clear the command prompt",[](Application* a_this,const QString& ,const QString&){
+        emit a_this->ClearPromptSignal();
+
+    }));
+    m_functionsMap.insert("clear-vars",CommandStruct("To clear the variables",[](Application* a_this,const QString& ,const QString&){
+        a_this->m_variablesMap.clear();
+
+    }));
     m_functionsMap.insert("help",CommandStruct("Show this help",[](Application* a_this,const QString&,const QString&){
         QString helpLine;
         auto keys = a_this->m_functionsMap.keys();
         for( auto aKey : keys ){
             helpLine = QString("\n")+aKey + ":\t" + (a_this->m_functionsMap)[aKey].help ;
             //emit a_this->MatlabOutputSignal(QString("\n")+aKey);
-            emit a_this->MatlabOutputSignal2(helpLine);
+            emit a_this->InsertOutputSignal(helpLine);
         }
     }));
+
+    //m_calcThread.start();
 
     m_workerThread.start();
     m_objectInWorkerThread.moveToThread(&m_workerThread);
 
-    ::QObject::connect(this,&Application::RunSystemSignal,&m_objectInWorkerThread,[this](const QString& a_systemLine){
-        char vcOutBuffer[1024];
-        //void* vBuffers[NUMBER_OF_EXE_READ_PIPES]={[0..3]=vcOutBuffer,vcOutBuffer,vcOutBuffer,vcOutBuffer};
-        void* vBuffers[NUMBER_OF_EXE_READ_PIPES]=INIT_C_ARRAYRD(vcOutBuffer);
-        size_t vBuffersSizes[NUMBER_OF_EXE_READ_PIPES]=INIT_C_ARRAYRD(1024);
-        size_t unReadSize;
-        bool bRunWhile=true;
-        ::common::system::readCode::Type readReturn;
+    ::QObject::connect(this,&Application::RunSystemOutSignal,&m_objectInWorkerThread,[this](const QString& a_systemLine, const QString& a_retArgumetName){
+        KeepSystemOutputIntoVarSysThread(a_systemLine,a_retArgumetName,common::system::readCode::RCstdout);
+    });
 
-        m_numberOfUsers = 0;
-        m_pPrcHandle = ::common::system::RunExecutableNoWaitLine(a_systemLine.toStdString().c_str());
+    ::QObject::connect(this,&Application::RunSystemErrSignal,&m_objectInWorkerThread,[this](const QString& a_systemLine, const QString& a_retArgumetName){
+        KeepSystemOutputIntoVarSysThread(a_systemLine,a_retArgumetName,common::system::readCode::RCstderr);
+    });
 
-        if(!m_pPrcHandle){
-            // here we use this, because no need to keep pointer of command prompt
-            emit MatlabErrorOutputSignal2(QString("Unable to execute line: ")+a_systemLine);
-            return;
-        }
-
-        emit MatlabOutputSignal2("\n");
-
-        m_isAllowedToUse = 1;
-
-        while(bRunWhile){
-            readReturn = ::common::system::TExecHandle_WatitForEndAndReadFromOutOrErr(m_pPrcHandle,vBuffers,vBuffersSizes,&unReadSize,-1);
-
-            switch(readReturn){
-            case ::common::system::readCode::RCstdout:                
-                vcOutBuffer[unReadSize]=0;
-                emit ExeOutputSignal2(vcOutBuffer);
-                break;
-            case ::common::system::readCode::RCstderr:                
-                vcOutBuffer[unReadSize]=0;
-                emit ExeErrorOutputSignal2(vcOutBuffer);
-                break;
-            case ::common::system::readCode::RCexeFinished2:
-                bRunWhile = false;
-                break;
-            default:
-                //bRunWhile = false;
-                qDebug()<<"Default";
-                break;
-            }
-        }  // while(bRunWhile){
-
-        m_isAllowedToUse = 0;
-
-        while(m_numberOfUsers){
-            SleepEx(1);
-        }
-
-        TExecHandle_WaitAndClearExecutable(m_pPrcHandle);
-        m_pPrcHandle = nullptr;
-        m_isSystemRunning = 0;
+    ::QObject::connect(this,&Application::RunSystemBothSignal,&m_objectInWorkerThread,[this](const QString& a_systemLine, const QString& a_retArgumetName){
+        KeepSystemOutputIntoVarSysThread(a_systemLine,a_retArgumetName,common::system::readCode::RCstdout|common::system::readCode::RCstderr);
     });
 }
 
@@ -357,14 +347,14 @@ emulator::Application::~Application()
     m_workerThread.quit();
     m_workerThread.wait();
 
+    //m_calcThread.quit();
+    //m_calcThread.wait();
+
     while(m_first){
         pEditorNext = m_first->next();
         delete m_first;
         m_first = pEditorNext;
     }
-
-    m_calcThread.quit();
-    m_calcThread.wait();
 
     pitz::daq::RootCleanup();
 
@@ -382,6 +372,89 @@ emulator::Application::~Application()
     qInstallMessageHandler(m_originalMessageeHandler);
 }
 
+void emulator::Application::KeepSystemOutputIntoVarSysThread(const QString& a_systemLine, const QString& a_retArgumetName, int a_returnsToMask)
+{
+    char vcOutBuffer[1024];
+    //void* vBuffers[NUMBER_OF_EXE_READ_PIPES]={[0..3]=vcOutBuffer,vcOutBuffer,vcOutBuffer,vcOutBuffer};
+    void* vBuffers[NUMBER_OF_EXE_READ_PIPES]=INIT_C_ARRAYRD(vcOutBuffer);
+    size_t vBuffersSizes[NUMBER_OF_EXE_READ_PIPES]=INIT_C_ARRAYRD(1024);
+    size_t unReadSize;
+    bool bRunWhile=true;
+    ::common::system::readCode::Type readReturn;
+    ::common::system::TExecHandle   pPrcHandle;
+    bool retArgumentIsTaken = (a_retArgumetName=="") ? false : true;
+    int nReadReturnCode;
+    QString returnArgValue;
+
+    m_numberOfUsers = 0;
+    pPrcHandle=m_pPrcHandle = ::common::system::RunExecutableNoWaitLine(a_systemLine.toStdString().c_str());
+
+    if(!m_pPrcHandle){
+        // here we use this, because no need to keep pointer of command prompt
+        emit InsertErrorSignal(QString("Unable to execute line: ")+a_systemLine);
+        return;
+    }
+
+    emit InsertOutputSignal("\n");
+
+    m_isAllowedToUse = 1;
+
+    while(bRunWhile){
+        readReturn = ::common::system::TExecHandle_WatitForEndAndReadFromOutOrErr(m_pPrcHandle,vBuffers,vBuffersSizes,&unReadSize,-1);
+        nReadReturnCode = static_cast<int>(readReturn);
+
+        vcOutBuffer[unReadSize]=0;
+
+        if( retArgumentIsTaken && (nReadReturnCode>0) && (nReadReturnCode&a_returnsToMask) ){
+            returnArgValue += vcOutBuffer;
+        }
+        //else
+        {
+            switch(readReturn){
+            case ::common::system::readCode::RCstdout:
+                emit InsertOutputSignal(vcOutBuffer);
+                break;
+            case ::common::system::readCode::RCstderr:
+                emit InsertErrorSignal(vcOutBuffer);
+                break;
+            //case ::common::system::readCode::RCexeFinished2:
+                //bRunWhile = false;
+                //break;
+            case ::common::system::readCode::RCallPipesInerror:
+                if( ::common::system::TExecHandle_IsExeFinished(pPrcHandle)){
+                    bRunWhile = false;
+                }
+                else{
+                    SleepEx(1,TRUE);
+                }
+                break;
+            default:
+                //bRunWhile = false;
+                qDebug()<<"Default";
+                break;
+            }  // switch(readReturn){
+
+        }  // else of if( retArgumentIsTaken && (nReadReturnCode>0) && (nReadReturnCode&a_returnsToMask) ){
+
+    }  // while(bRunWhile){
+
+    m_isAllowedToUse = 0;
+
+    while(m_numberOfUsers){
+        SleepEx(1,TRUE);
+    }
+
+    m_pPrcHandle = nullptr;
+    m_isCommandRunning2 = 0;
+    TExecHandle_WaitAndClearExecutable(pPrcHandle);
+    emit AppendNewPromptSignal();
+
+    if(retArgumentIsTaken){
+        mxArray* pNewArray = mxCreateString(returnArgValue.toStdString().c_str());
+        this->m_variablesMap.insert(a_retArgumetName,pNewArray);
+    }
+}
+
 
 bool emulator::Application::IsUsedAsStdin()const
 {
@@ -389,10 +462,10 @@ bool emulator::Application::IsUsedAsStdin()const
 }
 
 
-bool emulator::Application::IsSystemRunning()const
-{
-    return m_isSystemRunning ? true : false;
-}
+//bool emulator::Application::IsCommandRunning() const
+//{
+//    return m_isCommandRunning ? true : false;
+//}
 
 
 /*::common::system::TExecHandle*/bool emulator::Application::IncreaseUsage()
@@ -429,20 +502,6 @@ void emulator::Application::WriteToExeStdin(const QString& a_str)
     }
 }
 
-
-void emulator::Application::HandleLastStoredData(::common::system::readCode::Type a_type, const char* a_cpcBuffer, size_t /*a_size*/)
-{
-    switch(a_type){
-    case ::common::system::readCode::RCstdout:
-        emit ExeOutputSignal2(a_cpcBuffer);
-        break;
-    case ::common::system::readCode::RCstderr:
-        emit ExeErrorOutputSignal2(a_cpcBuffer);
-        break;
-    default:
-        break;
-    }
-}
 
 
 void emulator::Application::MainWindowClosedGui()
@@ -517,33 +576,42 @@ bool emulator::Application::FindScriptFile(const QString& a_inputArgumentsLine,Q
 
 void emulator::Application::RunScript(const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
 {
-    QString scriptPath;
+    m_isCommandRunning2 = 1;
 
-    if(FindScriptFile(a_inputArgumentsLine,&scriptPath)){
-        size_t firstNonEmpty;
-        const wchar_t* cpcNonEmptyLine;
-        QString aCommand;
-        QFile scriptFile(scriptPath);
+    try {
+        QString scriptPath;
 
-        if (scriptFile.open(QIODevice::ReadOnly)){
-            const wchar_t* pwcLine;
-            QString line;
-            QTextStream in(&scriptFile);
-            while (!in.atEnd()){
-               line = in.readLine();
-               pwcLine = line.toStdWString().c_str();
-               firstNonEmpty = wcsspn(pwcLine,L" \t");
-               cpcNonEmptyLine = pwcLine + firstNonEmpty;
-               aCommand = QString::fromWCharArray(cpcNonEmptyLine);
-               RunCommand(aCommand);
+        if(FindScriptFile(a_inputArgumentsLine,&scriptPath)){
+            QFile scriptFile(scriptPath);
+
+            if (scriptFile.open(QIODevice::ReadOnly)){
+                QString aCommand;
+                QString line;
+                QTextStream in(&scriptFile);
+                while (!in.atEnd()){
+                   line = in.readLine();
+                   aCommand = line.trimmed();
+                   if((aCommand.size()>0)&&(aCommand.at(0)!='#')){
+                       RunCommand(aCommand,true);
+                       emit InsertOutputSignal("\n");
+                   }
+                }
+                scriptFile.close();
             }
-            scriptFile.close();
-        }
 
+        }
+        else{
+            qDebug()<<a_inputArgumentsLine << a_retArgumetName;
+        }
     }
-    else{
-        qDebug()<<a_inputArgumentsLine << a_retArgumetName;
+    catch (const BadCommandException&) {
+        //
     }
+    catch (...) {
+        //
+    }
+
+    m_isCommandRunning2 = 0;
 }
 
 
@@ -630,10 +698,10 @@ emulator::Application::operator ::QSettings& ()
 }
 
 
-
-bool emulator::Application::RunCommand( QString& a_command )
+void emulator::Application::RunCommand( QString& a_command, bool a_bThrowException )
 {
-    if(!LIKELY_VALUE2(m_isSystemRunning,false)){
+    if(LIKELY_VALUE2(m_isCommandRunning2,0)<2){
+        QString errorString;
         QString::const_iterator strEnd;
         QChar cLast ;
         QString retArgumetName;
@@ -644,11 +712,15 @@ bool emulator::Application::RunCommand( QString& a_command )
         int nIndexBr1 = aCommandWholeTrimed.indexOf(QChar('('),0);
         int nIndexBr2;
 
+        // todo: DK
+        //++m_isCommandRunning;
+
         qDebug() << "commandToRun: " << aCommandWholeTrimed;
 
 
         if(  ((nIndexEq>0)&&(nIndexEq<nIndexBr1))||((nIndexEq>0)&&(nIndexBr1<0)) ){
             retArgumetName=aCommandWholeTrimed.left(nIndexEq);
+            retArgumetName = retArgumetName.trimmed();
             coreCommand = aCommandWholeTrimed.mid(nIndexEq+1);
             coreCommand = coreCommand.trimmed();
             nIndexBr1 = coreCommand.indexOf(QChar('('),0); // todo: make it faster
@@ -665,7 +737,8 @@ bool emulator::Application::RunCommand( QString& a_command )
             }
 
             if(cLast != ')'){
-                return false;
+                errorString =  "\nWrong syntax";
+                goto errorReturnPoint;
             }
 
             nIndexBr2 = static_cast<int>(strEnd-coreCommand.begin());
@@ -676,13 +749,26 @@ bool emulator::Application::RunCommand( QString& a_command )
 
         if(m_functionsMap.contains(coreCommand)){
             (*m_functionsMap[coreCommand].clbk)(this,inputArgumentsLine,retArgumetName);
-            return true;
+            if(!LIKELY_VALUE2(m_isCommandRunning2,0)){
+                emit AppendNewPromptSignal();
+            }
+            return;
+        }
+        else{
+            errorString =  QString("\nCommand \"") + coreCommand + "\" could not be found";
+            goto errorReturnPoint;
         }
 
-        return false;
+errorReturnPoint:
+        // todo: DK
+        //--m_isCommandRunning;
+        emit InsertErrorSignal(errorString);
+        emit AppendNewPromptSignal();
+        if(a_bThrowException){
+            throw BadCommandException("Unable to run");
+        }
+        return;
     }
-
-    return true;
 
 }
 
@@ -882,20 +968,49 @@ static size_t InfoToMatlabRaw(mxClassID* a_pClsIdOfData,mxArray* a_pMatlabArray,
 
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-emulator::CalcThread::CalcThread()
+emulator::WorkerThread::WorkerThread()
 {
 }
 
 
-emulator::CalcThread::~CalcThread()
+emulator::WorkerThread::~WorkerThread()
 {
 }
 
 
-void emulator::CalcThread::run()
+void emulator::WorkerThread::run()
 {
+#ifdef _WIN32
+#else
+    struct sigaction oldSigaction, newSigAction;
+
+    sigemptyset(&newSigAction.sa_mask);
+    newSigAction.sa_flags = 0;
+    newSigAction.sa_restorer = nullptr;
+    newSigAction.sa_handler = [](int){};
+
+    sigaction(SIGPIPE,&newSigAction,&oldSigaction);
+#endif
+
     QThread::exec();
+
+#ifdef _WIN32
+#else
+    sigaction(SIGPIPE,&oldSigaction,nullptr);
+#endif
 }
 
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+emulator::BadCommandException::BadCommandException( const ::std::string& a_what)
+    :
+      m_what(a_what)
+{
+}
+
+
+const char* emulator::BadCommandException::what()const noexcept
+{
+    return m_what.c_str();
+}

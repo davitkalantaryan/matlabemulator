@@ -21,21 +21,32 @@
 #include "../qt_code_editor/codeeditor.hpp"
 #include <common/system.hpp>
 #include <string>
+#include <exception>
+#include <typeinfo>
 
 namespace matlab { namespace emulator {
 
-
-class CalcThread : public QThread
+class BadCommandException : public ::std::exception
 {
 public:
-    CalcThread();
-    ~CalcThread() OVERRIDE;
+    BadCommandException(const ::std::string& msg);
+
+    const char* what()const noexcept OVERRIDE ;
+private:
+    const ::std::string     m_what;
+
+};
+
+class WorkerThread : public QThread
+{
+public:
+    WorkerThread();
+    ~WorkerThread() OVERRIDE;
 private:
     void run() OVERRIDE ;
 
 private:
 };
-
 
 
 class Application : public QApplication
@@ -54,13 +65,13 @@ public:
     Application(int& argc, char** argv);
     ~Application() OVERRIDE ;
 
-    bool RunCommand( QString& a_command );
-    void RunCommand2( const QString&  ){}
+    void RunCommand( QString& a_command, bool bThrowException );
     operator ::QSettings& ();
 
     void MainWindowClosedGui();
 
-    bool IsSystemRunning()const;
+    //bool IsCommandRunning()const;
+
     bool IsUsedAsStdin()const;
     void WriteToExeStdin(const QString& a_str);
 
@@ -70,16 +81,22 @@ private:
     bool  IncreaseUsage();
     void  DecreaseUsageOfSysHandle(  );
 
+    void  KeepSystemOutputIntoVarSysThread(const QString& a_systemLine, const QString& a_retArgumetName, int returnsToMask); // 0x1 -> stdout, 0x10 -> stderr, 0x100 -> data
+
 private:
 signals:
+    // command prompt signals
+    void InsertOutputSignal(const QString& logMsg);
+    void InsertErrorSignal(const QString& logMsg);
+    void AppendNewPromptSignal();
+    // other signals
     void NewLoggingReadySignal(QtMsgType logType, const QString& logMsg);
-    void MatlabOutputSignal2(const QString& logMsg);
-    void ExeOutputSignal2(const QString& logMsg);
-    void MatlabErrorOutputSignal2(const QString& logMsg);
-    void ExeErrorOutputSignal2(const QString& logMsg);
     void UpdateSettingsSignal(QSettings& settings);
-
-    void RunSystemSignal(const QString& systemLine);
+    void ClearPromptSignal();
+    // this is not for main thread
+    void RunSystemOutSignal(const QString& systemLine, const QString& reurnVarName);
+    void RunSystemErrSignal(const QString& systemLine, const QString& reurnVarName);
+    void RunSystemBothSignal(const QString& systemLine, const QString& reurnVarName);
 
 
 private:
@@ -90,13 +107,12 @@ private:
     mxArray*  GetMultipleBranchesFromFileCls(const QString& argumentsLine);
     mxArray*  GetMultipleBranchesForTimeInterval(const QString& a_argumentsLine);
     bool FindScriptFile(const QString& inputName,QString* scriptPath);
-    void    HandleLastStoredData(::common::system::readCode::Type type, const char* buffer, size_t size);
 
 private slots:
     void RunScript(const QString&,const QString&);
 
 private:
-    CalcThread                      m_calcThread;
+    //CalcThread                      m_calcThread;
 
     QSettings*                      m_pSettings;
     Engine*                         m_pEngine;
@@ -117,11 +133,12 @@ private:
     ::std::vector< QString >        m_knownPaths;
     CodeEditor                      *m_first,*m_last;
 
+    uint64_t                        m_isCommandRunning2 : 4;
+
     ::common::system::TExecHandle   m_pPrcHandle;
-    QThread                         m_workerThread;
+    WorkerThread                    m_workerThread;
     QObject                         m_objectInWorkerThread;
     uint64_t                        m_isAllowedToUse : 1;
-    uint64_t                        m_isSystemRunning : 1;
     uint64_t                        m_numberOfUsers : 10;
 };
 
