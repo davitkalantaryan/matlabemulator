@@ -9,18 +9,27 @@
 #include <QRegExp>
 #include <iostream>
 #include <QFileInfo>
-#ifdef _WIN32
-#include <io.h>
-#include <fcntl.h>
-#define pipe(_pfds) _pipe((_pfds),256,O_BINARY)
-#else
-#include <unistd.h>
-#endif
 #include <daq_root_reader.hpp>
 #include <QFile>
 #include <wchar.h>
 #include <QDir>
 #include <QFileInfo>
+
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#define pipe(_pfds) _pipe((_pfds),256,O_BINARY)
+#define gclose _close
+#define gread  _read
+#define gwrite _write
+// todo: DK, modify these macroses with propers
+#define STDERR_FILENO   2
+#else
+#include <unistd.h>
+#define gclose close
+#define gread  _read
+#define gwrite _write
+#endif
 
 #ifndef HANDLE_MEM_DEF
 #define HANDLE_MEM_DEF(_memory,...)
@@ -300,8 +309,8 @@ emulator::Application::~Application()
     }
 
     if(m_vErrorPipes[0]){
-        close(m_vErrorPipes[1]);
-        close(m_vErrorPipes[0]);
+        gclose(m_vErrorPipes[1]);
+        gclose(m_vErrorPipes[0]);
     }
 
     delete m_pSettings;
@@ -429,12 +438,12 @@ void emulator::Application::OpenOrReopenMatEngine()
 }
 
 
-ssize_t emulator::Application::ReadMatlabErrorPipe(char* a_pBuffer, size_t a_bufferSize)
+ssize_t emulator::Application::ReadMatlabErrorPipe(char* a_pBuffer, rdtype_t a_bufferSize)
 {
     ssize_t nReturn;
     if(m_vErrorPipes[0]){
-        write(m_vErrorPipes[1]," ",1);
-        nReturn = (read(m_vErrorPipes[0],a_pBuffer,a_bufferSize)-1);
+        gwrite(m_vErrorPipes[1]," ",1);
+        nReturn = (gread(m_vErrorPipes[0],a_pBuffer,a_bufferSize)-1);
     }
     else{
         nReturn = 0;

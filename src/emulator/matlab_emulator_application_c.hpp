@@ -19,6 +19,16 @@
 #include <cpp11+/common_defination.h>
 #include <vector>
 #include "../qt_code_editor/codeeditor.hpp"
+#include <stddef.h>
+
+#ifdef _WIN32
+#if !defined(ssize_t) && !defined(ssize_t_defined)
+typedef int ssize_t;
+#endif
+typedef int rdtype_t;
+#else
+typedef size_t rdtype_t;
+#endif
 
 namespace matlab { namespace emulator {
 
@@ -70,7 +80,7 @@ private:
     static void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
     void noMessageOutput(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
     void OpenOrReopenMatEngine();
-    ssize_t  ReadMatlabErrorPipe(char* buffer, size_t bufferSize);
+    ssize_t  ReadMatlabErrorPipe(char* buffer, rdtype_t bufferSize);
     mxArray*  GetMultipleBranchesFromFileCls(const QString& argumentsLine);
     mxArray*  GetMultipleBranchesForTimeInterval(const QString& a_argumentsLine);
     bool FindScriptFile(const QString& inputName,QString* scriptPath);
