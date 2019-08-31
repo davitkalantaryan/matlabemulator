@@ -20,10 +20,15 @@
 #ifdef _WIN32
 #include <io.h>
 #include <fcntl.h>
+#include <WinSock2.h>
+#include <WS2tcpip.h>
+#include <Windows.h>
 #define pipe(_pfds) _pipe((_pfds),256,O_BINARY)
 #define gclose _close
 #define gread  _read
 #define gwrite _write
+#define gdup   _dup
+#define gdup2  _dup2
 // todo: DK, modify these macroses with propers
 #define STDERR_FILENO   2
 #else
@@ -32,6 +37,8 @@
 #define gclose close
 #define gread  read
 #define gwrite write
+#define gdup   dup
+#define gdup2  dup2
 #endif
 
 
@@ -632,12 +639,12 @@ void emulator::Application::OpenOrReopenMatEngine()
             return;
         }
     }
-    stderrCopy = dup(STDERR_FILENO);
-    dup2(m_vErrorPipes[1],STDERR_FILENO);
+    stderrCopy = gdup(STDERR_FILENO);
+    gdup2(m_vErrorPipes[1],STDERR_FILENO);
     m_pEngine = engOpen(MATLAB_START_COMMAND);
     //m_pEngine = engOpenSingleUse(MATLAB_START_COMMAND,nullptr,nullptr);
-    dup2(stderrCopy,STDERR_FILENO);
-    close(stderrCopy);
+    gdup2(stderrCopy,STDERR_FILENO);
+    gclose(stderrCopy);
 }
 
 

@@ -29,7 +29,7 @@
 #if !defined(ssize_t) && !defined(ssize_t_defined)
 typedef int ssize_t;
 #endif
-typedef int rdtype_t;
+typedef unsigned int rdtype_t;
 #else
 typedef size_t rdtype_t;
 #endif

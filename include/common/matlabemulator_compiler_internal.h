@@ -9,7 +9,8 @@
 #ifndef COMMON_MATLABEMULATOR_COMPILER_INTERNAL_H
 #define COMMON_MATLABEMULATOR_COMPILER_INTERNAL_H
 
-#ifdef _MSC_VER_
+#ifdef _MSC_VER
+#define LIKELY_VALUE2(_x,_val)  (_x)
 #elif defined(__GNUC__)
 #define LIKELY2(_x)             __builtin_expect(!!(_x), 1)
 #define UNLIKELY2(_x)           __builtin_expect(!!(_x), 0)

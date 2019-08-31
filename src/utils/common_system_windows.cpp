@@ -34,5 +34,25 @@ int TExecHandle_WriteToStdIn(TExecHandle a_handle,const void* a_buffer, size_t a
     return 0;
 }
 
+int RunExecutableNoWaitLineStatic(const char* a_argumentsLine,struct SExechandle* a_pHandle)
+{
+    return -1;
+}
+
+void TExecHandle_WaitAndClearExecutable(TExecHandle a_handle)
+{
+    //
+}
+
+bool TExecHandle_IsExeFinished(TExecHandle a_handle)
+{
+    return true;
+}
+
+readCode::Type TExecHandle_WatitForEndAndReadFromOutOrErr(TExecHandle a_handle,void* a_buffers[NUMBER_OF_EXE_READ_PIPES],size_t a_buffersSizes[NUMBER_OF_EXE_READ_PIPES],size_t* a_pReadSize,int a_timeoutMs)
+{
+    return readCode::RCnone;
+}
+
 
 }} // namespace common{ namespace system {
