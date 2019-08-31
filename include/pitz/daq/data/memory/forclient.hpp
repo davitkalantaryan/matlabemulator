@@ -8,7 +8,7 @@
 #include <pitz/daq/data/memory/base.hpp>
 
 #ifdef ROOT_APP
-#include "Rtypes.h"
+//#include "Rtypes.h"
 #else   // #ifdef ROOT_APP
 typedef int Int_t;
 typedef float Float_t;

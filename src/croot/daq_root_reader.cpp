@@ -2,12 +2,6 @@
  *
  */
 
-#include <TFile.h>
-#include <TTree.h>
-#include "TROOT.h"
-#include "TPluginManager.h"
-#include <TKey.h>
-#include "TLeaf.h"
 #include <daq_root_reader.hpp>
 #include <pitz/daq/data/indexing.hpp>
 #include <cpp11+/common_defination.h>
@@ -17,6 +11,56 @@
 #define MAKE_WARNING_THIS(...)
 
 #define TMP_FILE_NAME       "tmp.root.file.root"
+
+
+namespace pitz{ namespace daq{
+
+
+void RootCleanup()
+{
+    //
+}
+
+}}  // namespace pitz{ namespace daq{
+
+
+#ifdef _WIN32
+
+namespace pitz{ namespace daq{
+
+
+//static bool ShallContinue(void* clbkData, const data::memory::ForClient&)
+//{
+//    //
+//}
+
+int RootInitialize()
+{
+    return 0;
+}
+
+int GetMultipleBranchesFromFile( const char*, const ::std::list< BranchUserInputInfo >&, ::std::list< BranchOutputForUserInfo* >* )
+{
+    return -1;
+}
+
+void GetMultipleBranchesForTime( time_t, time_t, const ::std::list< BranchUserInputInfo >&, ::std::list< BranchOutputForUserInfo* >*)
+{
+    return ;
+}
+
+
+}}  // namespace pitz{ namespace daq{
+
+#else  // #ifdef _WIN32
+
+#include <TFile.h>
+#include <TTree.h>
+#include "TROOT.h"
+#include "TPluginManager.h"
+#include <TKey.h>
+#include "TLeaf.h"
+
 
 struct STimeCompareData{
     time_t startTime, endTime;
@@ -54,11 +98,6 @@ int RootInitialize()
     return 0;
 }
 
-
-void RootCleanup()
-{
-    //
-}
 
 int GetMultipleBranchesFromFile( const char* a_rootFileName, const ::std::list< BranchUserInputInfo >& a_Input, ::std::list< BranchOutputForUserInfo* >* a_pOutput)
 {
@@ -374,3 +413,5 @@ finalizeOldArrays:
 }
 
 //#include "MatlabEngine.hpp"
+
+#endif  // #ifdef _WIN32

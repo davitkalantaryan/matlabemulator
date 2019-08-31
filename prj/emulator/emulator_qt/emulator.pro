@@ -11,26 +11,15 @@ CONFIG += DEBUG
 #CONFIG += c++17
 #QMAKE_CXXFLAGS += -std=c++14
 
-GCCPATH = $$system(which gcc)
-
-message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
 
 # include ($${PWD}/../../common/common_qt/sys_common.pri)
 include ($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_matrix_common.pri)
-include($${PWD}/../../common/common_qt/root_no_gui_common.pri)
 
 INCLUDEPATH += $${PWD}/../../../include
 
 QT += gui
 QT += core
 greaterThan(QT_MAJOR_VERSION, 4):QT += widgets
-
-LIBS += -leng
-LIBS += -lmat
-LIBS += -lhdf5_hl
-LIBS += -lhdf5
-#LIBS += -L$${PWD}/../../../sys/Nitrogen/lib
-#LIBS += -lpcre
 
 #CONFIG -= RPATH
 #QMAKE_RPATHDIR = /afs/ifh.de/SL/6/x86_64/opt/matlab/R2016b/bin/glnxa64
@@ -39,7 +28,16 @@ LIBS += -lhdf5
 win32{
     SOURCES += \
         $${PWD}/../../../src/utils/common_system_windows.cpp
+    LIBS += -llibeng
+    LIBS += -llibmat
 } else {
+    GCCPATH = $$system(which gcc)
+    message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
+    include($${PWD}/../../common/common_qt/root_no_gui_common.pri)
+    LIBS += -leng
+    LIBS += -lmat
+    LIBS += -lhdf5_hl
+    LIBS += -lhdf5
     LIBS += -lpthread
     SOURCES += \
         $${PWD}/../../../src/utils/common_system_unix.cpp
