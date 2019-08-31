@@ -336,6 +336,9 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             emit a_this->InsertOutputSignal(helpLine);
         }
     }));
+    m_functionsMap.insert("commands",CommandStruct("History for the commands",[](Application* a_this,const QString&,const QString&){
+        emit a_this->PrintCommandsHistSignal();
+    }));
 
     //m_calcThread.start();
 

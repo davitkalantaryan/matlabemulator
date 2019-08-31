@@ -99,6 +99,7 @@ signals:
     void InsertOutputSignal(const QString& logMsg);
     void InsertErrorSignal(const QString& logMsg);
     void AppendNewPromptSignal();
+    void PrintCommandsHistSignal();
     // other signals
     void NewLoggingReadySignal(QtMsgType logType, const QString& logMsg);
     void UpdateSettingsSignal(QSettings& settings);

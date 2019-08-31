@@ -53,6 +53,18 @@ emulator::CommandPrompt::CommandPrompt()
         moveCursor(QTextCursor::End);
     });
 
+    ::QObject::connect(ThisAppPtr,&Application::PrintCommandsHistSignal,this,[this](){
+        QVariant varntCmd;
+        BASE_LIST< QVariant >::const_iterator cmdIter = m_commandsList.first(), cmdIterEnd = m_commandsList.lastPlus1();
+        //auto keys = a_this->m_functionsMap.keys();
+        for( ;cmdIter!=cmdIterEnd;++cmdIter ){
+            append((*cmdIter).toString());
+        }
+
+        //append(">>");
+        //moveCursor(QTextCursor::End);
+    });
+
     ::QObject::connect(ThisAppPtr,&Application::UpdateSettingsSignal,this,[this](QSettings& a_appSettings){
         a_appSettings.setValue(COMMANDS,m_commandsList.list());
     });
@@ -195,15 +207,17 @@ void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
                         m_lastItem = m_commandsList.first();
                         m_lastItemSet = 1;
                     }
+                    else{
+                        // todo: remove last line (https://stackoverflow.com/questions/15326569/removing-last-line-from-qtextedit)
+                        aCursor.movePosition(QTextCursor::End);
+                        aCursor.select(QTextCursor::LineUnderCursor);
+                        aCursor.removeSelectedText();
+                        insertPlainText(">>");
+                        //append(">>");
+                        if((++m_lastItem)==m_commandsList.lastPlus1()){
+                            m_lastItem = m_commandsList.first();
+                        }
 
-                    // todo: remove last line (https://stackoverflow.com/questions/15326569/removing-last-line-from-qtextedit)
-                    aCursor.movePosition(QTextCursor::End);
-                    aCursor.select(QTextCursor::LineUnderCursor);
-                    aCursor.removeSelectedText();
-                    insertPlainText(">>");
-                    //append(">>");
-                    if((++m_lastItem)==m_commandsList.lastPlus1()){
-                        m_lastItem = m_commandsList.first();
                     }
 
                     insertPlainText((*m_lastItem).toString());
@@ -224,17 +238,22 @@ void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
                         m_lastItem = --m_commandsList.lastPlus1();
                         m_lastItemSet = 1;
                     }
+                    else{
 
-                    aCursor.movePosition(QTextCursor::End);
-                    aCursor.select(QTextCursor::LineUnderCursor);
-                    aCursor.removeSelectedText();
-                    insertPlainText(">>");
-                    // append(">>");
-                    if((m_lastItem--)==m_commandsList.first()){
-                        m_lastItem = m_commandsList.lastPlus1();
-                        --m_lastItem;
+                        aCursor.movePosition(QTextCursor::End);
+                        aCursor.select(QTextCursor::LineUnderCursor);
+                        aCursor.removeSelectedText();
+                        insertPlainText(">>");
+                        // append(">>");
+
+                        if((m_lastItem--)==m_commandsList.first()){
+                            m_lastItem = m_commandsList.lastPlus1();
+                            --m_lastItem;
+                        }
                     }
+
                     insertPlainText((*m_lastItem).toString());
+                    moveCursor(QTextCursor::End);
 
                 }  // if(m_commandsList.hasItem()){
             }
