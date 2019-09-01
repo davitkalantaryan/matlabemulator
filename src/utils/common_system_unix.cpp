@@ -7,7 +7,6 @@
 //
 
 #include <string.h> // we hope that strcspn is rejecting case
-#include <common/system.hpp>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>

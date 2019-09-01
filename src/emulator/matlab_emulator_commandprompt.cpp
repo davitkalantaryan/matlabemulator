@@ -48,6 +48,14 @@ emulator::CommandPrompt::CommandPrompt()
         setTextColor(QColor(0,0,0));
     });
 
+    ::QObject::connect(ThisAppPtr,&Application::InsertWarningSignal,this,[this](const QString& a_matlabOut){
+        setTextColor(QColor(200,200,0));
+        //append(a_matlabOut);// this inserts into new line
+        insertPlainText(a_matlabOut); // this inserts into current possition
+        moveCursor(QTextCursor::End);
+        setTextColor(QColor(0,0,0));
+    });
+
     ::QObject::connect(ThisAppPtr,&Application::AppendNewPromptSignal,this,[this](){
         append(">>");
         moveCursor(QTextCursor::End);

@@ -19,11 +19,14 @@
 #include <cpp11+/common_defination.h>
 #include <vector>
 #include "../qt_code_editor/codeeditor.hpp"
-#include <common/system.hpp>
+#include <common/system/runexe.hpp>
 #include <string>
 #include <exception>
 #include <typeinfo>
 #include <stddef.h>
+#include <map>
+#include <matlab/emulator/extendbylib.hpp>
+#include <list>
 
 #ifdef _WIN32
 #if !defined(ssize_t) && !defined(ssize_t_defined)
@@ -35,6 +38,41 @@ typedef size_t rdtype_t;
 #endif
 
 namespace matlab { namespace emulator {
+
+
+//typedef const TEmTableEntry* TypeMatlabEmulatorTable;
+struct Extend1LibraryStruct;
+
+struct ExtendedFunction
+{
+    const TEmTableEntry&                      tableEntryItem;
+    ::std::list<ExtendedFunction* >::iterator thisIter;
+    const QString                             functionName;
+    const QString                             helpString;
+    Extend1LibraryStruct*                     parentLibHandle;
+    uint64_t                                  isMapped : 1;
+    //
+    ExtendedFunction(const TEmTableEntry& a_tbEntry, QString&& a_funcName,QString&& a_helpString,Extend1LibraryStruct* a_parentLibHandle)
+        :tableEntryItem(a_tbEntry),functionName(a_funcName),helpString(a_helpString),parentLibHandle(a_parentLibHandle)
+    {this->isMapped = 0;}
+    ~ExtendedFunction();
+};
+
+
+struct Extend1LibraryStruct
+{
+    void*                           libraryHandle;
+    uint64_t                        notDestructing : 1;
+    const TEmTableEntry*            tableEntry;
+    const QString                   libraryPath;
+    ::std::list<ExtendedFunction* > functions;
+    //
+    Extend1LibraryStruct(void* a_libHandle,const TEmTableEntry* a_tableEntry,QString&& a_libraryPath)
+        :libraryHandle(a_libHandle),tableEntry(a_tableEntry),libraryPath(a_libraryPath)
+    {this->notDestructing=1;}
+    ~Extend1LibraryStruct();
+};
+
 
 class BadCommandException : public ::std::exception
 {
@@ -93,11 +131,21 @@ private:
 
     void  KeepSystemOutputIntoVarSysThread(const QString& a_systemLine, const QString& a_retArgumetName, int returnsToMask); // 0x1 -> stdout, 0x10 -> stderr, 0x100 -> data
 
+    //
+    void ExtendMethod1(const QString& a_inputArgumentsLine,const QString& a_retArgumetName);
+    void ClearExtends1();
+    bool TryToRunExt1Function(const QString& coreCommand, const QString& a_inputArgumentsLine,const QString& a_retArgumetName);
+
+    //
+    void ShowVariableIfImplemented(const QString& a_inputArgumentsLine);
+    void ClearAllVariables();
+
 private:
 signals:
     // command prompt signals
     void InsertOutputSignal(const QString& logMsg);
     void InsertErrorSignal(const QString& logMsg);
+    void InsertWarningSignal(const QString& logMsg);
     void AppendNewPromptSignal();
     void PrintCommandsHistSignal();
     // other signals
@@ -151,6 +199,11 @@ private:
     QObject                         m_objectInWorkerThread;
     uint64_t                        m_isAllowedToUse : 1;
     uint64_t                        m_numberOfUsers : 10;
+
+    //
+    ::std::map< QString,Extend1LibraryStruct* >   m_librariesExt1;
+    ::std::map< QString,ExtendedFunction* >       m_ext1Functions;
+    int                                           m_nNumberUnknownExtend1Functions;
 };
 
 }} // namespace matlab { namespace  {

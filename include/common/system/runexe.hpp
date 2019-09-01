@@ -1,13 +1,13 @@
 //
-// file:            common/system.hpp
+// file:            common/system/runexe.hpp
 // created on:      2019 Aug 26
 // created by:      Davit Kalantaryan (davit.kalantaryan@desy.de)
 //
 // This header is for functions, that is used to call system routines and binaries
 //
 
-#ifndef COMMON_SYSTEM_HPP
-#define COMMON_SYSTEM_HPP
+#ifndef COMMON_SYSTEM_RUNEXE_HPP
+#define COMMON_SYSTEM_RUNEXE_HPP
 
 #include <stddef.h>
 
@@ -54,4 +54,4 @@ bool TExecHandle_IsExeFinished(TExecHandle handle);
 
 
 
-#endif  // #ifndef COMMON_SYSTEM_HPP
+#endif  // #ifndef COMMON_SYSTEM_RUNEXE_HPP

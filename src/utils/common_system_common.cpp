@@ -6,7 +6,6 @@
 // Here is functions, that is used to call system routines and binaries
 //
 
-#include <common/system.hpp>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>

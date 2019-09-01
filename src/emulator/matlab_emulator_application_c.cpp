@@ -16,6 +16,10 @@
 #include <QFileInfo>
 #include <common/matlabemulator_compiler_internal.h>
 #include <signal.h>
+#include <matlab/emulator/extendbylib.hpp>
+#include <common/system/handlelib.hpp>
+#include <utility>
+#include <matrix.h> // from MATLAB
 
 #ifdef _WIN32
 #include <io.h>
@@ -47,6 +51,7 @@
 #endif
 
 int CreateProcessToDevNullAndWait2(const char* a_cpcExecuteLine);
+static size_t ParseInputArgumentsLine( const QString& a_inputArgumentsLine, ::std::vector<QString>* a_pOutArgs);
 
 using namespace matlab;
 
@@ -90,6 +95,7 @@ emulator::Application::Application(int& a_argc, char** a_argv)
     :
       QApplication (a_argc,a_argv)
 {
+    m_nNumberUnknownExtend1Functions = 0;
     m_pPrcHandle = nullptr;
     m_isAllowedToUse = 0;
     m_isCommandRunning2 = 0;
@@ -173,6 +179,12 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
         mxArray* mxData = a_this->GetMultipleBranchesFromFileCls(a_inputArgumentsLine);
         if(mxData){
+            if(a_this->m_variablesMap.contains(a_retArgumetName)){
+                mxArray* mxOldData = a_this->m_variablesMap[a_retArgumetName];
+                if(mxOldData){
+                    mxDestroyArray(mxOldData);
+                }
+            }
             a_this->m_variablesMap.insert(a_retArgumetName,mxData);
         }
     }));
@@ -185,6 +197,12 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
         mxArray* mxData = a_this->GetMultipleBranchesForTimeInterval(a_inputArgumentsLine);
         if(mxData){
+            if(a_this->m_variablesMap.contains(a_retArgumetName)){
+                mxArray* mxOldData = a_this->m_variablesMap[a_retArgumetName];
+                if(mxOldData){
+                    mxDestroyArray(mxOldData);
+                }
+            }
             a_this->m_variablesMap.insert(a_retArgumetName,mxData);
         }
     }));
@@ -324,7 +342,42 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
     }));
     m_functionsMap.insert("clear-vars",CommandStruct("To clear the variables",[](Application* a_this,const QString& ,const QString&){
-        a_this->m_variablesMap.clear();
+        a_this->ClearAllVariables();
+
+    }));
+    m_functionsMap.insert("commands",CommandStruct("History for the commands",[](Application* a_this,const QString&,const QString&){
+        emit a_this->PrintCommandsHistSignal();
+    }));
+    m_functionsMap.insert("extend",CommandStruct("Extends app by library using method 1",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
+        a_this->ExtendMethod1(a_inputArgumentsLine,a_retArgumetName);
+
+    }));
+    m_functionsMap.insert("clear-ext1",CommandStruct("Clears all extends, those are done using method 1",[](Application* a_this,const QString&,const QString&){
+        a_this->ClearExtends1();
+
+    }));
+    m_functionsMap.insert("list-ext1",CommandStruct("Lists all ext1 and functions",[](Application* a_this,const QString&,const QString&){
+        QString reportString = QString("\nNumberOfExtend1=")+QString::number( a_this->m_librariesExt1.size());
+
+        emit a_this->InsertOutputSignal(reportString);
+        for (auto const& lib : a_this->m_librariesExt1){
+            reportString =
+              QString("\n\tentryName=\"") + lib.first + "\", functionsCount=" +
+              QString::number(lib.second->functions.size()) +  ", libFile=\"" + lib.second->libraryPath + "\"";
+            emit a_this->InsertOutputSignal(reportString);
+            for(auto func : lib.second->functions){
+                reportString = QString("\n\t\tfunction: \"") + func->functionName + "\"  -> " + func->helpString;
+                emit a_this->InsertOutputSignal(reportString);
+                if(!func->isMapped){
+                    reportString = QString(" WARNING: this function is not mapped");
+                    emit a_this->InsertWarningSignal(reportString);
+                }
+            }  // for(auto func : lib.second->functions){
+        } // for (auto const& lib : a_this->m_librariesExt1){
+
+    }));
+    m_functionsMap.insert("show-var",CommandStruct("Shows the variable content ifthe type is implemented",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
+        a_this->ShowVariableIfImplemented(a_inputArgumentsLine);
 
     }));
     m_functionsMap.insert("help",CommandStruct("Show this help",[](Application* a_this,const QString&,const QString&){
@@ -335,9 +388,6 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             //emit a_this->MatlabOutputSignal(QString("\n")+aKey);
             emit a_this->InsertOutputSignal(helpLine);
         }
-    }));
-    m_functionsMap.insert("commands",CommandStruct("History for the commands",[](Application* a_this,const QString&,const QString&){
-        emit a_this->PrintCommandsHistSignal();
     }));
 
     //m_calcThread.start();
@@ -387,9 +437,137 @@ emulator::Application::~Application()
     }
 
     delete m_pSettings;
+    ClearExtends1();
+    ClearAllVariables();
 
     qInstallMessageHandler(m_originalMessageeHandler);
 }
+
+
+void emulator::Application::ClearAllVariables()
+{
+    for(mxArray* var : m_variablesMap){
+        mxDestroyArray(var);
+    }
+    m_variablesMap.clear();
+}
+
+
+void emulator::Application::ShowVariableIfImplemented(const QString& a_inputArgumentsLine)
+{
+    if(m_variablesMap.contains(a_inputArgumentsLine)){
+        mxArray* pValue = m_variablesMap[a_inputArgumentsLine];
+
+        if(pValue){
+            mxClassID clsId = mxGetClassID(pValue);
+
+            switch(clsId){
+            case mxCHAR_CLASS:{
+                size_t unBufSize = mxGetNumberOfElements(pValue) * mxGetElementSize(pValue);
+                if(unBufSize){
+                    char* pcBufferForData = static_cast<char*>(alloca(unBufSize + 4));
+                    mxGetString(pValue,pcBufferForData,unBufSize+2);
+                    emit InsertOutputSignal(QString("\n") + a_inputArgumentsLine + "=\"" + QString(pcBufferForData) + "\"");
+                }
+                else{
+                    emit InsertWarningSignal(QString("\nEmpty string is under ")+a_inputArgumentsLine);
+                }
+            }break;
+            default:
+                emit InsertWarningSignal(QString("\nDisplaying class \"") + mxGetClassName(pValue) + QString("\" is not implemented yet"));
+                break;
+            }
+        }  // if(pValue){
+        else{
+            emit InsertWarningSignal(QString("\nNull is under ")+a_inputArgumentsLine);
+        }
+
+    }
+    else{
+        emit InsertErrorSignal(QString("\nVariable wit the name \"") + a_inputArgumentsLine + "\" does not exist");
+    }
+}
+
+
+void emulator::Application::ClearExtends1()
+{
+    m_ext1Functions.clear();
+
+    for (auto const& lib : m_librariesExt1){
+        delete lib.second;
+    }
+
+    m_librariesExt1.clear();
+}
+
+
+void emulator::Application::ExtendMethod1(const QString& a_inputArgumentsLine,const QString& /*a_retArgumetName*/)
+{
+    ::std::vector<QString> vectInputArgs;
+
+    if(ParseInputArgumentsLine(a_inputArgumentsLine,&vectInputArgs)<2){
+        emit InsertErrorSignal("\nWrong syntax, 2 inputs should be provided");
+        return;
+    }
+
+    if(m_librariesExt1.count(vectInputArgs[0])){
+        QString errorMessage = QString("\nEntry with the name \"") + vectInputArgs[0] + "\" already exist";
+        emit InsertErrorSignal(errorMessage);
+        return;
+    }
+
+    void* pLibraryHandle = ::common::system::LoadDynLib(vectInputArgs[1].toStdString().c_str());
+
+    if(!pLibraryHandle){
+        QString errorMessage = QString("\nLibrary with the name \"") + vectInputArgs[1] + "\" is not found";
+        emit InsertErrorSignal(errorMessage);
+        return;
+    }
+
+    //TypeMatlabEmulatorTable* pTable = static_cast<TypeMatlabEmulatorTable*>(::common::system::GetSymbolAddress(pLibraryHandle,MTLAB_EMUL_TABLE_NAME));
+    SEmTableEntry* pTable = static_cast<SEmTableEntry*>(::common::system::GetSymbolAddress(pLibraryHandle,MTLAB_EMUL_TABLE_NAME));
+
+    if(!pTable){
+        QString errorMessage = QString("\nTable of symbols is not found from library \"") + vectInputArgs[1] + "\" ";
+        ::common::system::UnloadDynLib(pLibraryHandle);
+        emit InsertErrorSignal(errorMessage);
+        return;
+    }
+
+    if(!pTable[0].function){
+        QString errorMessage = QString("\no function is exported to the table of symbols in the library \"") + vectInputArgs[1] + "\" ";
+        ::common::system::UnloadDynLib(pLibraryHandle);
+        emit InsertErrorSignal(errorMessage);
+        return;
+    }
+
+    Extend1LibraryStruct* pNewLibrary = new Extend1LibraryStruct(pLibraryHandle,pTable, ::std::move(vectInputArgs[1]) );
+    ExtendedFunction* pFuncEntry;
+    QString tmpFuncNameStr, tmpHelpStr, warningString;
+
+    for(int i(0);pTable[i].function;++i/*,++pNewLibrary->totalNumberOfFunctions*/){
+        tmpFuncNameStr = pTable[i].functionName ? pTable[i].functionName : (QString("UnknownFunc_")+QString::number(m_nNumberUnknownExtend1Functions++));
+        tmpHelpStr = pTable[i].helpString ? pTable[i].helpString : (QString("Help for function \"")+tmpFuncNameStr + "\" is not available");
+        pFuncEntry = new ExtendedFunction(pTable[i],::std::move(tmpFuncNameStr),::std::move(tmpHelpStr),pNewLibrary);
+        pNewLibrary->functions.push_front(pFuncEntry);
+        pFuncEntry->thisIter = pNewLibrary->functions.begin();
+        //if(!LIKELY_VALUE2(m_ext1Functions.count(tmpFuncNameStr),0)){
+        if(!m_ext1Functions.count(tmpFuncNameStr)){
+            m_ext1Functions.insert( ::std::pair<QString,ExtendedFunction*>(pFuncEntry->functionName,pFuncEntry));
+            pFuncEntry->isMapped = 1;
+        }
+        else{
+            warningString = QString("\nFunction with name \"") + tmpFuncNameStr + "\" already exist, so function will not be added.\n";
+            warningString += "Anyhow you are able to access this function by command below\n";
+            warningString += "run-extend(" + vectInputArgs[0] + "," + QString::number(i)+",inputArgumentLine)";
+            emit InsertWarningSignal(warningString);
+            continue;
+        }
+    }
+
+    m_librariesExt1.insert( ::std::pair<QString,Extend1LibraryStruct*>(vectInputArgs[0],pNewLibrary) );
+}
+
 
 void emulator::Application::KeepSystemOutputIntoVarSysThread(const QString& a_systemLine, const QString& a_retArgumetName, int a_returnsToMask)
 {
@@ -470,6 +648,12 @@ void emulator::Application::KeepSystemOutputIntoVarSysThread(const QString& a_sy
 
     if(retArgumentIsTaken){
         mxArray* pNewArray = mxCreateString(returnArgValue.toStdString().c_str());
+        if(m_variablesMap.contains(a_retArgumetName)){
+            mxArray* mxOldData = m_variablesMap[a_retArgumetName];
+            if(mxOldData){
+                mxDestroyArray(mxOldData);
+            }
+        }
         this->m_variablesMap.insert(a_retArgumetName,pNewArray);
     }
 }
@@ -717,6 +901,29 @@ emulator::Application::operator ::QSettings& ()
 }
 
 
+bool emulator::Application::TryToRunExt1Function(const QString& a_coreCommand, const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
+{
+    if( m_ext1Functions.count(a_coreCommand)){
+        ExtendedFunction* ext1Func = m_ext1Functions[a_coreCommand];
+        const char* cpcStringReturned = (*ext1Func->tableEntryItem.function)(a_inputArgumentsLine.toStdString().c_str());
+
+        if(cpcStringReturned && a_retArgumetName.size()){
+            mxArray* pStringomExt = mxCreateString(cpcStringReturned);
+            if(m_variablesMap.contains(a_retArgumetName)){
+                mxArray* mxOldData = m_variablesMap[a_retArgumetName];
+                if(mxOldData){
+                    mxDestroyArray(mxOldData);
+                }
+            }
+            m_variablesMap.insert(a_retArgumetName,pStringomExt);
+        }
+
+        return true;
+    }
+    return false;
+}
+
+
 void emulator::Application::RunCommand( QString& a_command, bool a_bThrowException )
 {
     if(LIKELY_VALUE2(m_isCommandRunning2,0)<2){
@@ -773,7 +980,7 @@ void emulator::Application::RunCommand( QString& a_command, bool a_bThrowExcepti
             }
             return;
         }
-        else{
+        else if( !TryToRunExt1Function(coreCommand,inputArgumentsLine,retArgumetName)){
             errorString =  QString("\nCommand \"") + coreCommand + "\" could not be found";
             goto errorReturnPoint;
         }
@@ -1032,4 +1239,56 @@ emulator::BadCommandException::BadCommandException( const ::std::string& a_what)
 const char* emulator::BadCommandException::what()const noexcept
 {
     return m_what.c_str();
+}
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+emulator::Extend1LibraryStruct::~Extend1LibraryStruct()
+{
+    ExtendedFunction* pFncToDelete;
+
+    this->notDestructing = 0;
+    while(this->functions.size()){
+        pFncToDelete = *this->functions.begin();
+        this->functions.pop_front();
+        delete pFncToDelete;
+    }
+
+    if(this->libraryHandle){
+        ::common::system::UnloadDynLib(this->libraryHandle);
+    }
+}
+
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+emulator::ExtendedFunction::~ExtendedFunction()
+{
+    if(this->parentLibHandle && this->parentLibHandle->notDestructing){
+        this->parentLibHandle->functions.erase(this->thisIter);
+    }
+}
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+static size_t ParseInputArgumentsLine( const QString& a_inputArgumentsLine, ::std::vector<QString>* a_pOutArgs)
+{
+    if(!a_inputArgumentsLine.size()){
+        return 0;
+    }
+
+    QString aArg;
+    QString remainingArgLine(a_inputArgumentsLine);
+    int nComaIndex = a_inputArgumentsLine.indexOf(',');
+
+    for(;nComaIndex>0;nComaIndex = remainingArgLine.indexOf(',')){
+        aArg = remainingArgLine.left(nComaIndex);
+        aArg = aArg.trimmed();
+        a_pOutArgs->push_back(aArg);
+        remainingArgLine = remainingArgLine.mid(nComaIndex+1);
+    }
+
+    a_pOutArgs->push_back(remainingArgLine);
+
+    return a_pOutArgs->size();
 }
