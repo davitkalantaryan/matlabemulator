@@ -5,6 +5,9 @@
 .tmp/*
 *.dll
 
+/examples/extend2_test_current.bmat
+/examples/prog_with_stdin_test
+
 /docs/doc/~*
 
 prj/*/*_qt/Makefile

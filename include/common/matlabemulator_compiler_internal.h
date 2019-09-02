@@ -11,6 +11,8 @@
 
 #ifdef _MSC_VER
 
+#define CPP_VARIABLE_C2         extern "C"
+
 #define LIKELY_VALUE2(_x,_val)  (_x)
 
 #define EXPORT_FROM_LIB2        __declspec(dllexport)
@@ -18,6 +20,9 @@
 #define HIDE_SYMBOL2
 
 #elif defined(__GNUC__)
+
+#define CPP_VARIABLE_C2
+
 #define LIKELY2(_x)             __builtin_expect(!!(_x), 1)
 #define UNLIKELY2(_x)           __builtin_expect(!!(_x), 0)
 #define LIKELY_VALUE2(_x,_val)  __builtin_expect((_x), (_val))
@@ -30,15 +35,25 @@
 
 #ifdef __cplusplus
 
+#define VARIABLE_C2     CPP_VARIABLE_C2
 #define EXTERN_C2       extern "C"
 #define BEGIN_C_DECL2   extern "C"{
 #define END_C_DECL2     }
 
+#if 1 // later on should be checked whether we have cpp11+
+#define NEWNULLPTR2     nullptr
+#else
+#define NEWNULLPTR2     NULL
+#endif
+
 #else
 
-#define EXTERN_C2
+#define VARIABLE_C2
+#define EXTERN_C2      extern
 #define BEGIN_C_DECL2
 #define END_C_DECL2
+
+#define NEWNULLPTR2     NULL
 
 #endif  // #ifdef __cplusplus
 

@@ -25,8 +25,12 @@
 #include <typeinfo>
 #include <stddef.h>
 #include <map>
-#include <matlab/emulator/extendbylib.hpp>
+#include <matlab/emulator/extend1bylib.hpp>
 #include <list>
+#include <QFile>
+#include <QFileInfoList>
+#include <utility>
+#include <extendbylib_functions_private.hpp>
 
 #ifdef _WIN32
 #if !defined(ssize_t) && !defined(ssize_t_defined)
@@ -43,19 +47,37 @@ namespace matlab { namespace emulator {
 //typedef const TEmTableEntry* TypeMatlabEmulatorTable;
 struct Extend1LibraryStruct;
 
-struct ExtendedFunction
+struct ExtendedFunction2
 {
-    const TEmTableEntry&                      tableEntryItem;
-    ::std::list<ExtendedFunction* >::iterator thisIter;
+    FncTypeEmExtension                        function;
     const QString                             functionName;
     const QString                             helpString;
-    Extend1LibraryStruct*                     parentLibHandle;
-    uint64_t                                  isMapped : 1;
     //
-    ExtendedFunction(const TEmTableEntry& a_tbEntry, QString&& a_funcName,QString&& a_helpString,Extend1LibraryStruct* a_parentLibHandle)
-        :tableEntryItem(a_tbEntry),functionName(a_funcName),helpString(a_helpString),parentLibHandle(a_parentLibHandle)
+    ExtendedFunction2( FncTypeEmExtension a_function, QString&& a_funcName,QString&& a_helpString ):function(a_function),functionName(a_funcName),helpString(a_helpString){}
+};
+
+struct Extend1Function
+{
+    ExtendedFunction2                           exFunc;
+    ::std::list<Extend1Function* >::iterator    thisIter;
+    Extend1LibraryStruct*                       parentLibHandle;
+    uint64_t                                    isMapped : 1;
+    //
+    Extend1Function(FncTypeEmExtension a_function, QString&& a_funcName,QString&& a_helpString,Extend1LibraryStruct* a_parentLibHandle)
+        :exFunc(a_function,::std::move(a_funcName),::std::move(a_helpString)),parentLibHandle(a_parentLibHandle)
     {this->isMapped = 0;}
-    ~ExtendedFunction();
+    ~Extend1Function();
+};
+
+struct Extend2Function
+{
+    ExtendedFunction2           exFunc;
+    void*                       parentLibHandle;
+    //
+    Extend2Function(FncTypeEmExtension a_function, QString&& a_funcName,QString&& a_helpString,void* a_parentLibHandle)
+        :exFunc(a_function,::std::move(a_funcName),::std::move(a_helpString)),parentLibHandle(a_parentLibHandle)
+    {}
+    ~Extend2Function();
 };
 
 
@@ -65,7 +87,7 @@ struct Extend1LibraryStruct
     uint64_t                        notDestructing : 1;
     const TEmTableEntry*            tableEntry;
     const QString                   libraryPath;
-    ::std::list<ExtendedFunction* > functions;
+    ::std::list<Extend1Function* >  functions;
     //
     Extend1LibraryStruct(void* a_libHandle,const TEmTableEntry* a_tableEntry,QString&& a_libraryPath)
         :libraryHandle(a_libHandle),tableEntry(a_tableEntry),libraryPath(a_libraryPath)
@@ -97,7 +119,7 @@ private:
 };
 
 
-class Application : public QApplication
+class Application : public QApplication, private ApplicationBase
 {
     Q_OBJECT
     static void CommandDefaultFunction(Application*,const QString&,const QString&){}
@@ -134,11 +156,37 @@ private:
     //
     void ExtendMethod1(const QString& a_inputArgumentsLine,const QString& a_retArgumetName);
     void ClearExtends1();
-    bool TryToRunExt1Function(const QString& coreCommand, const QString& a_inputArgumentsLine,const QString& a_retArgumetName);
+    void ClearExtends2();
+    bool TryToRunExt1Function(const QString& coreCommand,const QString& inputArgumentsLine,const QString& retArgumetName);
+    void RunExtendedFunction(const ExtendedFunction2& func, const QString& inputArgumentsLine,const QString& retArgumetName);
 
     //
     void ShowVariableIfImplemented(const QString& a_inputArgumentsLine);
     void ClearAllVariables();
+
+    void noMessageOutput(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
+    void OpenOrReopenMatEngine();
+    ssize_t  ReadMatlabErrorPipe(char* buffer, rdtype_t bufferSize);
+    mxArray*  GetMultipleBranchesFromFileCls(const QString& argumentsLine);
+    mxArray*  GetMultipleBranchesForTimeInterval(const QString& a_argumentsLine);
+    bool FindAnyFileInKnownDirs(const QString& inputName,QString* scriptPath);
+    int  FindScriptorExt2File(const QString& inputName,QString* scriptPath);
+
+    bool RunScriptOrExt2(const QString& coreCommand,const QString& inputArgumentsLine,const QString& retArgumetName);
+    void RunScriptByPath(const QString& a_scriptPath, const QString& a_inputArgumentsLine,const QString& a_retArgumetName);
+    void RunScriptByFile(QFile& a_scriptFile, const QString& a_inputArgumentsLine,const QString& a_retArgumetName);
+    void RunExt2File(const QString& coreCommand, const QString& ext2Path, const QString& a_inputArgumentsLine,const QString& a_retArgumetName);
+    void PrintScriptsAndExtsListForDir(const QFileInfoList& a_entryInfoList);
+
+
+    /*////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+    int MatEmPrintStandard(const char* format, va_list argList) OVERRIDE ;
+    int MatEmPrintError(const char* format, va_list argList) OVERRIDE ;
+    int MatEmPrintWarning(const char* format, va_list argList) OVERRIDE ;
+    int MatEmPrintColored(TMatEmRGB color, const char* format, va_list argList) OVERRIDE ;
+    int PutVariableToEmulatorWorkspace(const char* variableName, mxArray* var) OVERRIDE ;
+    int PutVariableToMatlabWorkspace(const char* variableName, mxArray* var) OVERRIDE ;
+    /*////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
 private:
 signals:
@@ -146,6 +194,7 @@ signals:
     void InsertOutputSignal(const QString& logMsg);
     void InsertErrorSignal(const QString& logMsg);
     void InsertWarningSignal(const QString& logMsg);
+    void InsertColoredTextSignal(int rd, int gr, int bl, const QString& logMsg);
     void AppendNewPromptSignal();
     void PrintCommandsHistSignal();
     // other signals
@@ -158,17 +207,13 @@ signals:
     void RunSystemBothSignal(const QString& systemLine, const QString& reurnVarName);
 
 
+    // static functions
 private:
     static void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
-    void noMessageOutput(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
-    void OpenOrReopenMatEngine();
-    ssize_t  ReadMatlabErrorPipe(char* buffer, rdtype_t bufferSize);
-    mxArray*  GetMultipleBranchesFromFileCls(const QString& argumentsLine);
-    mxArray*  GetMultipleBranchesForTimeInterval(const QString& a_argumentsLine);
-    bool FindScriptFile(const QString& inputName,QString* scriptPath);
 
+    // slots (if necessary)
 private slots:
-    void RunScript(const QString&,const QString&);
+    void RunAnyScript(const QString&,const QString&);  // todo: delete this
 
 private:
     //CalcThread                      m_calcThread;
@@ -202,7 +247,8 @@ private:
 
     //
     ::std::map< QString,Extend1LibraryStruct* >   m_librariesExt1;
-    ::std::map< QString,ExtendedFunction* >       m_ext1Functions;
+    ::std::map< QString,Extend1Function* >        m_ext1Functions;
+    ::std::map< QString,Extend2Function* >        m_ext2Functions;
     int                                           m_nNumberUnknownExtend1Functions;
 };
 

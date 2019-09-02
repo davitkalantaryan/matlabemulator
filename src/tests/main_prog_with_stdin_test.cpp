@@ -7,6 +7,11 @@
 #include <stdio.h>
 #include <string>
 
+struct mxArray{};
+
+//mexPrintf
+
+void WriteToEmulatorMemory(mxArray*);
 
 int main(int a_argc, char* a_argv[])
 {

@@ -56,6 +56,14 @@ emulator::CommandPrompt::CommandPrompt()
         setTextColor(QColor(0,0,0));
     });
 
+    ::QObject::connect(ThisAppPtr,&Application::InsertColoredTextSignal,this,[this](int a_rd, int a_gr, int a_bl, const QString& a_matlabOut){
+        setTextColor(QColor(a_rd,a_gr,a_bl));
+        //append(a_matlabOut);// this inserts into new line
+        insertPlainText(a_matlabOut); // this inserts into current possition
+        moveCursor(QTextCursor::End);
+        setTextColor(QColor(0,0,0));
+    });
+
     ::QObject::connect(ThisAppPtr,&Application::AppendNewPromptSignal,this,[this](){
         append(">>");
         moveCursor(QTextCursor::End);
@@ -198,6 +206,7 @@ void emulator::CommandPrompt::keyReleaseEvent(QKeyEvent* a_keyEvent)
             QString lineText = aCursor.block().text();
             if(lineText.size()>2){ // todo: make this better, check the case of multiline command
                 QString strCommand = lineText.mid(2);
+                //append("");
                 moveCursor(QTextCursor::End);
                 ThisAppPtr->RunCommand( strCommand, false );
                 m_commandsList.AddNewToTheFront(strCommand);

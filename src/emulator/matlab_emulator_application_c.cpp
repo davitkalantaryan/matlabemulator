@@ -3,8 +3,6 @@
 // created on:  2019 Jun 12
 //
 
-//#define USE_QDIR_SEARCH_ENGINE
-
 #include "matlab_emulator_application_c.hpp"
 #include <QRegExp>
 #include <iostream>
@@ -16,10 +14,10 @@
 #include <QFileInfo>
 #include <common/matlabemulator_compiler_internal.h>
 #include <signal.h>
-#include <matlab/emulator/extendbylib.hpp>
+#include <matlab/emulator/extend1bylib.hpp>
 #include <common/system/handlelib.hpp>
-#include <utility>
 #include <matrix.h> // from MATLAB
+#include <matlab/emulator/extend2bylib.hpp>
 
 #ifdef _WIN32
 #include <io.h>
@@ -82,13 +80,26 @@ using namespace matlab;
 
 #define INDX_TO_DISPLAY 2
 
-void noMessageOutputStatic(QtMsgType a_type, const QMessageLogContext & a_ctx,const QString &a_message);
+namespace flExt{
 
-static const char* s_emulExtensions[] ={
-    ".scr"
+struct SMatEmulExtension{
+    const char* m_extName;
+    int         m_strLen;
+    int         reserved;
+    SMatEmulExtension(const char* a_extName):m_extName(a_extName),m_strLen(static_cast<int>(strlen(a_extName))){}
 };
 
-static const size_t s_nNumberOfExtensions = sizeof(s_emulExtensions) / sizeof(const char*);
+namespace type {enum Type{script=0,ext2=1};}
+static const SMatEmulExtension s_emulExtensions2[] ={
+    ".smat",
+    ".bmat"
+};
+static const int s_nNumberOfExtensions2 = sizeof(s_emulExtensions2) / sizeof(const SMatEmulExtension);
+
+}  // namespace flExt{
+
+
+//static inline void Print
 
 
 emulator::Application::Application(int& a_argc, char** a_argv)
@@ -213,41 +224,45 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             CHECK_MATLAB_ENGINE_AND_DO_LAMBDA(engPutVariable,a_inputArgumentsLine.toStdString().c_str(),a_this->m_variablesMap[a_inputArgumentsLine]);
         }
         else{
-            // InsertErrorSignal
             QString errStr = QString("\nVariable with name \"") + a_inputArgumentsLine + QString("\" can not be found!");
             emit a_this->InsertErrorSignal(errStr);
         }
     }));
-    m_functionsMap.insert("script",CommandStruct("Run sequence of commands provided in the script",
+    m_functionsMap.insert("script",CommandStruct("Run sequence of commands provided in the script file. The file should be in text format with any extesion",
                                                  [](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
 
-        a_this->RunScript(a_inputArgumentsLine,a_retArgumetName);
+        a_this->RunAnyScript(a_inputArgumentsLine,a_retArgumetName);
 
     }));
     m_functionsMap.insert("open",CommandStruct("Open script file for modification",
                                                [](Application* a_this,const QString& a_inputArgumentsLine,const QString& /*a_retArgumetName*/){
         QString scriptPath;
+        CodeEditor* pEditor = nullptr;
+        int nExtIndex = a_this->FindScriptorExt2File(a_inputArgumentsLine,&scriptPath);
 
-        if(a_this->FindScriptFile(a_inputArgumentsLine,&scriptPath)){
-            CodeEditor* pEditor = new CodeEditor(a_this->m_last,scriptPath);
-            if(!a_this->m_first){
-                a_this->m_first = pEditor;
-            }
-            a_this->m_last = pEditor;
-
-            ::QObject::connect(pEditor,&QWidget::destroyed,a_this,[a_this]{
-                CodeEditor* pEditorInner = STATIC_CAST(CodeEditor*,a_this->sender());
-                qDebug()<<__FUNCTION__;
-                if(pEditorInner==a_this->m_first){
-                    a_this->m_first = NEWNULLPTR;
-                }
-                if(pEditorInner==a_this->m_last){
-                    a_this->m_last = NEWNULLPTR;
-                }
-            });
-
-            pEditor->show();
+        if((nExtIndex!=flExt::type::script) && a_this->FindAnyFileInKnownDirs(a_inputArgumentsLine,&scriptPath)){
+            emit a_this->InsertErrorSignal(QString("\nUnable to find file or script with the name \"")+a_inputArgumentsLine + "\"");
+            return;
         }
+
+        pEditor = new CodeEditor(a_this->m_last,scriptPath);
+        if(!a_this->m_first){
+            a_this->m_first = pEditor;
+        }
+        a_this->m_last = pEditor;
+
+        ::QObject::connect(pEditor,&QWidget::destroyed,a_this,[a_this]{
+            CodeEditor* pEditorInner = STATIC_CAST(CodeEditor*,a_this->sender());
+            qDebug()<<__FUNCTION__;
+            if(pEditorInner==a_this->m_first){
+                a_this->m_first = NEWNULLPTR;
+            }
+            if(pEditorInner==a_this->m_last){
+                a_this->m_last = NEWNULLPTR;
+            }
+        });
+
+        pEditor->show();
 
     }));
     m_functionsMap.insert("addpath",CommandStruct("To add new known path",[](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
@@ -298,44 +313,22 @@ emulator::Application::Application(int& a_argc, char** a_argv)
     }));
     m_functionsMap.insert("scripts-list",CommandStruct("Show all scripts from all known paths",[](Application* a_this,const QString&,const QString&){
         const size_t unNumberOfPaths(a_this->m_knownPaths.size());
-        size_t i;
+        size_t unPathsIndex;
         QFileInfoList fileInfList;
         QDir  knownDir;
-        QString filePath;
-        size_t unExtensionIndex;
 
         knownDir.cd( QDir::currentPath() );
         fileInfList = knownDir.entryInfoList();
 
-        for(auto fileInfo : fileInfList){
-            if(fileInfo.isFile()){
-                filePath = fileInfo.filePath();
+        a_this->PrintScriptsAndExtsListForDir(fileInfList);
 
-                for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
-                    if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
-                        emit a_this->InsertOutputSignal(QString("\n")+filePath);
-                    } // if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
-                } // for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
-            } // if(fileInfo.isFile()){
-        } // for(auto fileInfo : fileInfList){
-
-        for(i=0;i<unNumberOfPaths;++i){
-            if( knownDir.cd( a_this->m_knownPaths[i] ) ){
+        for(unPathsIndex=0;unPathsIndex<unNumberOfPaths;++unPathsIndex){
+            if( knownDir.cd( a_this->m_knownPaths[unPathsIndex] ) ){
                 fileInfList = knownDir.entryInfoList();
+                a_this->PrintScriptsAndExtsListForDir(fileInfList);
+            }
+        }
 
-                for(auto fileInfo : fileInfList){
-                    if(fileInfo.isFile()){
-                        filePath = fileInfo.filePath();
-
-                        for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
-                            if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
-                                emit a_this->InsertOutputSignal(QString("\n")+filePath);
-                            } // if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
-                        } // for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
-                    } // if(fileInfo.isFile()){
-                } // for(auto fileInfo : fileInfList){
-            } // if( knownDir.cd( a_this->m_knownPaths[i] ) ){
-        } // for(i=0;i<unNumberOfPaths;++i){
     }));
     m_functionsMap.insert("clear-prpt",CommandStruct("To clear the command prompt",[](Application* a_this,const QString& ,const QString&){
         emit a_this->ClearPromptSignal();
@@ -356,6 +349,10 @@ emulator::Application::Application(int& a_argc, char** a_argv)
         a_this->ClearExtends1();
 
     }));
+    m_functionsMap.insert("clear-ext2",CommandStruct("Clears all extends, those are done using method 2",[](Application* a_this,const QString&,const QString&){
+        a_this->ClearExtends2();
+
+    }));
     m_functionsMap.insert("list-ext1",CommandStruct("Lists all ext1 and functions",[](Application* a_this,const QString&,const QString&){
         QString reportString = QString("\nNumberOfExtend1=")+QString::number( a_this->m_librariesExt1.size());
 
@@ -366,7 +363,7 @@ emulator::Application::Application(int& a_argc, char** a_argv)
               QString::number(lib.second->functions.size()) +  ", libFile=\"" + lib.second->libraryPath + "\"";
             emit a_this->InsertOutputSignal(reportString);
             for(auto func : lib.second->functions){
-                reportString = QString("\n\t\tfunction: \"") + func->functionName + "\"  -> " + func->helpString;
+                reportString = QString("\n\t\tfunction: \"") + func->exFunc.functionName + "\"  -> " + func->exFunc.helpString;
                 emit a_this->InsertOutputSignal(reportString);
                 if(!func->isMapped){
                     reportString = QString(" WARNING: this function is not mapped");
@@ -406,11 +403,16 @@ emulator::Application::Application(int& a_argc, char** a_argv)
     ::QObject::connect(this,&Application::RunSystemBothSignal,&m_objectInWorkerThread,[this](const QString& a_systemLine, const QString& a_retArgumetName){
         KeepSystemOutputIntoVarSysThread(a_systemLine,a_retArgumetName,common::system::readCode::RCstdout|common::system::readCode::RCstderr);
     });
+
+    s_pApplicationPointer = this;
 }
 
 
 emulator::Application::~Application()
 {
+    if(s_pApplicationPointer==this){
+        s_pApplicationPointer = nullptr;
+    }
     CodeEditor* pEditorNext;
 
     m_workerThread.quit();
@@ -441,6 +443,59 @@ emulator::Application::~Application()
     ClearAllVariables();
 
     qInstallMessageHandler(m_originalMessageeHandler);
+}
+
+
+int emulator::Application::MatEmPrintStandard(const char* a_format, va_list a_argList)
+{
+    emit InsertOutputSignal(QString::vasprintf(a_format,a_argList) );
+    return 0;
+}
+int emulator::Application::MatEmPrintError(const char* a_format, va_list a_argList)
+{
+    emit InsertErrorSignal(QString::vasprintf(a_format,a_argList) );
+    return 0;
+}
+int emulator::Application::MatEmPrintWarning(const char* a_format, va_list a_argList)
+{
+    emit InsertWarningSignal(QString::vasprintf(a_format,a_argList) );
+    return 0;
+}
+int emulator::Application::MatEmPrintColored(TMatEmRGB a_color, const char* a_format, va_list a_argList)
+{
+    emit InsertColoredTextSignal(a_color.rd, a_color.gr, a_color.bl, QString::vasprintf(a_format,a_argList) );
+    return 0;
+}
+int emulator::Application::PutVariableToEmulatorWorkspace(const char* a_variableName, mxArray* a_var)
+{
+    mxArray* pNewArray = mxDuplicateArray(a_var);
+    this->m_variablesMap.insert(a_variableName,pNewArray);
+    return 0;
+}
+int emulator::Application::PutVariableToMatlabWorkspace(const char* a_variableName, mxArray* a_var)
+{
+    mxArray* pNewArray = mxDuplicateArray(a_var);
+    CHECK_MATLAB_ENGINE_AND_DO(engPutVariable,a_variableName,pNewArray);
+    return 0;
+}
+
+
+void emulator::Application::PrintScriptsAndExtsListForDir(const QFileInfoList& a_entryInfoList)
+{
+    QString filePath;
+    int nExtensionIndex;
+
+    for(auto fileInfo : a_entryInfoList){
+        if(fileInfo.isFile()){
+            filePath = fileInfo.filePath();
+
+            for(nExtensionIndex=0;nExtensionIndex<flExt::s_nNumberOfExtensions2;++nExtensionIndex){
+                if(filePath.endsWith(flExt::s_emulExtensions2[nExtensionIndex].m_extName,Qt::CaseInsensitive)){
+                    emit InsertOutputSignal(QString("\n")+filePath);
+                } // if(filePath.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
+            } // for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
+        } // if(fileInfo.isFile()){
+    } // for(auto fileInfo : fileInfList){
 }
 
 
@@ -500,6 +555,16 @@ void emulator::Application::ClearExtends1()
     m_librariesExt1.clear();
 }
 
+void emulator::Application::ClearExtends2()
+{
+
+    for (auto const& ext2 : m_ext2Functions){
+        delete ext2.second;
+    }
+
+    m_ext2Functions.clear();
+}
+
 
 void emulator::Application::ExtendMethod1(const QString& a_inputArgumentsLine,const QString& /*a_retArgumetName*/)
 {
@@ -542,18 +607,18 @@ void emulator::Application::ExtendMethod1(const QString& a_inputArgumentsLine,co
     }
 
     Extend1LibraryStruct* pNewLibrary = new Extend1LibraryStruct(pLibraryHandle,pTable, ::std::move(vectInputArgs[1]) );
-    ExtendedFunction* pFuncEntry;
+    Extend1Function* pFuncEntry;
     QString tmpFuncNameStr, tmpHelpStr, warningString;
 
     for(int i(0);pTable[i].function;++i/*,++pNewLibrary->totalNumberOfFunctions*/){
         tmpFuncNameStr = pTable[i].functionName ? pTable[i].functionName : (QString("UnknownFunc_")+QString::number(m_nNumberUnknownExtend1Functions++));
         tmpHelpStr = pTable[i].helpString ? pTable[i].helpString : (QString("Help for function \"")+tmpFuncNameStr + "\" is not available");
-        pFuncEntry = new ExtendedFunction(pTable[i],::std::move(tmpFuncNameStr),::std::move(tmpHelpStr),pNewLibrary);
+        pFuncEntry = new Extend1Function(pTable[i].function,::std::move(tmpFuncNameStr),::std::move(tmpHelpStr),pNewLibrary);
         pNewLibrary->functions.push_front(pFuncEntry);
         pFuncEntry->thisIter = pNewLibrary->functions.begin();
         //if(!LIKELY_VALUE2(m_ext1Functions.count(tmpFuncNameStr),0)){
         if(!m_ext1Functions.count(tmpFuncNameStr)){
-            m_ext1Functions.insert( ::std::pair<QString,ExtendedFunction*>(pFuncEntry->functionName,pFuncEntry));
+            m_ext1Functions.insert( ::std::pair<QString,Extend1Function*>(pFuncEntry->exFunc.functionName,pFuncEntry));
             pFuncEntry->isMapped = 1;
         }
         else{
@@ -588,7 +653,7 @@ void emulator::Application::KeepSystemOutputIntoVarSysThread(const QString& a_sy
 
     if(!m_pPrcHandle){
         // here we use this, because no need to keep pointer of command prompt
-        emit InsertErrorSignal(QString("Unable to execute line: ")+a_systemLine);
+        emit InsertErrorSignal(QString("\nUnable to execute line: ")+a_systemLine);
         return;
     }
 
@@ -720,91 +785,115 @@ void emulator::Application::MainWindowClosedGui()
 }
 
 
-bool emulator::Application::FindScriptFile(const QString& a_inputArgumentsLine,QString* a_pScriptPath)
+bool emulator::Application::FindAnyFileInKnownDirs(const QString& a_inputArgumentsLine,QString* a_pScriptPath)
 {
-#ifdef USE_QDIR_SEARCH_ENGINE
-
-#else  // #ifdef USE_QDIR_SEARCH_ENGINE
     QString& scriptPath = *a_pScriptPath;
-    size_t unExtensionIndex, unDirectoryIndex, unDirsCount;
-    bool bExtensionAdded=false;
+    size_t unDirectoryIndex, unDirsCount;
 
-    //QString scriptName;
-    //qDebug()<<a_inputArgumentsLine << a_retArgumetName;
-
-    for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
-        if(a_inputArgumentsLine.endsWith(s_emulExtensions[unExtensionIndex],Qt::CaseInsensitive)){
-            bExtensionAdded = true;
-            break;
-        }
-    }
-
-    if(bExtensionAdded){
-        if(QFile::exists(a_inputArgumentsLine)){
-            scriptPath  = a_inputArgumentsLine;
-            return true;
-        }
-    }
-    else{
-        for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
-            scriptPath = a_inputArgumentsLine + s_emulExtensions[unExtensionIndex];
-            if(QFile::exists(scriptPath)){
-                return true;
-            }
-        }
+    if(QFile::exists(a_inputArgumentsLine)){
+        scriptPath  = a_inputArgumentsLine;
+        return true;
     }
 
     unDirsCount = m_knownPaths.size();
     for(unDirectoryIndex=0;unDirectoryIndex<unDirsCount;++unDirectoryIndex){
         scriptPath = m_knownPaths[unDirectoryIndex] + "/" + a_inputArgumentsLine;
-        if(bExtensionAdded){
-            if(QFile::exists(scriptPath)){
-                return true;
-            }
-        }
-        else{
-            for(unExtensionIndex=0;unExtensionIndex<s_nNumberOfExtensions;++unExtensionIndex){
-                scriptPath += s_emulExtensions[unExtensionIndex];
-                if(QFile::exists(scriptPath)){
-                    return true;
-                }
-            }
+        if(QFile::exists(scriptPath)){
+            return true;
         }
     }
 
     return false;
-#endif  // #ifdef USE_QDIR_SEARCH_ENGINE
 }
 
 
-void emulator::Application::RunScript(const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
+static inline int FindFileFromTheList(const QString& a_coreCommand, const QFileInfoList& a_entryInfoList, QString* a_pScriptOrExtPath)
+{
+    int nExtensionIndex;
+    int nFilePathStrLen;
+    QString filePath;
+    QString filePathWithoutExtension;
+
+    for(auto fileInfo : a_entryInfoList){
+        if(fileInfo.isFile()){
+            filePath = fileInfo.filePath();
+
+            if(filePath.contains(a_coreCommand)){
+                for(nExtensionIndex=0;nExtensionIndex<flExt::s_nNumberOfExtensions2;++nExtensionIndex){
+                    if(filePath.endsWith(flExt::s_emulExtensions2[nExtensionIndex].m_extName,Qt::CaseInsensitive)){
+                        nFilePathStrLen = filePath.length();
+                        if(nFilePathStrLen>flExt::s_emulExtensions2[nExtensionIndex].m_strLen){
+                            filePathWithoutExtension = filePath.left(nFilePathStrLen-flExt::s_emulExtensions2[nExtensionIndex].m_strLen);
+                            if(filePathWithoutExtension.endsWith(a_coreCommand)){
+                                *a_pScriptOrExtPath = filePath;
+                                return nExtensionIndex;
+                            }
+                        }
+                    } // if(filePath.endsWith(s_emulExtensions2[nExtensionIndex].m_extName,Qt::CaseInsensitive)){
+                } // for(nExtensionIndex=0;nExtensionIndex<s_nNumberOfExtensions2;++nExtensionIndex){
+            }  // if(filePath.contains(a_coreCommand)){
+
+        } // if(fileInfo.isFile()){
+    } // for(auto fileInfo : fileInfList){
+
+    return -1;
+}
+
+
+int emulator::Application::FindScriptorExt2File(const QString& a_coreCommand,QString* a_pScriptOrExtPath)
+{
+    const size_t unNumberOfPaths(m_knownPaths.size());
+    size_t unPathsIndex;
+    QFileInfoList fileInfList;
+    QDir  knownDir;
+    int nExtensionIndex;
+
+    knownDir.cd( QDir::currentPath() );
+    fileInfList = knownDir.entryInfoList();
+
+    if((nExtensionIndex = FindFileFromTheList(a_coreCommand,fileInfList,a_pScriptOrExtPath))>=0){
+        return nExtensionIndex;
+    }
+
+
+    for(unPathsIndex=0;unPathsIndex<unNumberOfPaths;++unPathsIndex){
+        if( knownDir.cd( m_knownPaths[unPathsIndex] ) ){
+            fileInfList = knownDir.entryInfoList();
+            if((nExtensionIndex = FindFileFromTheList(a_coreCommand,fileInfList,a_pScriptOrExtPath))>=0){
+                return nExtensionIndex;
+            }
+        }
+    }
+
+    return -1;
+}
+
+
+void emulator::Application::RunScriptByPath(const QString& a_scriptPath, const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
+{
+    QFile scriptFile(a_scriptPath);
+    if (scriptFile.open(QIODevice::ReadOnly)){
+        RunScriptByFile(scriptFile,a_inputArgumentsLine,a_retArgumetName);
+        scriptFile.close();
+    }
+}
+
+
+void emulator::Application::RunScriptByFile(QFile& a_scriptFile, const QString& /*a_inputArgumentsLine*/,const QString& /*a_retArgumetName*/)
 {
     m_isCommandRunning2 = 1;
 
     try {
-        QString scriptPath;
-
-        if(FindScriptFile(a_inputArgumentsLine,&scriptPath)){
-            QFile scriptFile(scriptPath);
-
-            if (scriptFile.open(QIODevice::ReadOnly)){
-                QString aCommand;
-                QString line;
-                QTextStream in(&scriptFile);
-                while (!in.atEnd()){
-                   line = in.readLine();
-                   aCommand = line.trimmed();
-                   if((aCommand.size()>0)&&(aCommand.at(0)!='#')){
-                       RunCommand(aCommand,true);
-                       emit InsertOutputSignal("\n");
-                   }
-                }
-                scriptFile.close();
-            }
-
-        }
-        else{
-            qDebug()<<a_inputArgumentsLine << a_retArgumetName;
+        QString aCommand;
+        QString line;
+        QTextStream in(&a_scriptFile);
+        while (!in.atEnd()){
+           line = in.readLine();
+           aCommand = line.trimmed();
+           if((aCommand.size()>0)&&(aCommand.at(0)!='#')){
+               RunCommand(aCommand,true);
+               emit InsertOutputSignal("\n");
+           }
         }
     }
     catch (const BadCommandException&) {
@@ -815,6 +904,71 @@ void emulator::Application::RunScript(const QString& a_inputArgumentsLine,const 
     }
 
     m_isCommandRunning2 = 0;
+}
+
+
+void emulator::Application::RunExt2File(const QString& a_coreCommand, const QString& a_ext2Path, const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
+{
+    if(m_ext2Functions.count(a_ext2Path)){
+        // we have already this binary in the workspace
+        RunExtendedFunction(m_ext2Functions[a_ext2Path]->exFunc,a_inputArgumentsLine,a_retArgumetName);
+        return;
+    }
+
+    void* pLibraryHandle = ::common::system::LoadDynLib(a_ext2Path.toStdString().c_str());
+    if(!pLibraryHandle){
+        emit InsertErrorSignal(QString("\nUnable to open library with the name: \"")+a_ext2Path+"\"");
+        return;
+    }
+
+    FncTypeEmExtension fpFunction = reinterpret_cast<FncTypeEmExtension>( ::common::system::GetSymbolAddress(pLibraryHandle,MTLAB_EMULATOR_ENTRY) );
+
+    if(!fpFunction){
+        ::common::system::UnloadDynLib(pLibraryHandle);
+        emit InsertErrorSignal(QString("\nEntry point could not be found from module with the name: \"")+a_ext2Path+"\"");
+        return;
+    }
+
+    const char* cpcHelpString = *static_cast<const char**>( ::common::system::GetSymbolAddress(pLibraryHandle,MTLAB_EMULATOR_ENTRY_HELP) );
+    QString helpString = cpcHelpString ? cpcHelpString : (QString("Help for function \"")+a_coreCommand + "\" is not available");
+
+    Extend2Function* pExt2Func = new Extend2Function(fpFunction,QString(a_coreCommand), ::std::move(helpString),pLibraryHandle);
+    m_ext2Functions.insert( ::std::pair<QString,Extend2Function*>(a_ext2Path,pExt2Func) );
+    RunExtendedFunction(pExt2Func->exFunc,a_inputArgumentsLine,a_retArgumetName);
+}
+
+
+bool emulator::Application::RunScriptOrExt2(const QString& a_coreCommand,const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
+{
+    QString scriptOrExtPath;
+    int nExtIndex = FindScriptorExt2File(a_coreCommand,&scriptOrExtPath);
+    bool bRet = true;
+
+    switch(nExtIndex){
+    case flExt::type::script:
+        RunScriptByPath(scriptOrExtPath,a_inputArgumentsLine,a_retArgumetName);
+        break;
+    case flExt::type::ext2:
+        RunExt2File(a_coreCommand,scriptOrExtPath,a_inputArgumentsLine,a_retArgumetName);
+        break;
+    default:{
+        bRet = false;
+    }break;
+    }
+
+    return bRet;
+}
+
+
+void emulator::Application::RunAnyScript(const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
+{
+    QString scriptPath;
+    if(FindAnyFileInKnownDirs(a_inputArgumentsLine,&scriptPath)){
+        RunScriptByPath(scriptPath,a_inputArgumentsLine,a_retArgumetName);
+    }
+    else{
+        emit InsertErrorSignal(QString("\nUnable to find script file (any text file) with the name \"")+a_inputArgumentsLine+"\"");
+    }
 }
 
 
@@ -901,23 +1055,27 @@ emulator::Application::operator ::QSettings& ()
 }
 
 
+void emulator::Application::RunExtendedFunction(const ExtendedFunction2& a_func, const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
+{
+    const char* cpcStringReturned = (*a_func.function)(a_inputArgumentsLine.toStdString().c_str());
+
+    if(cpcStringReturned && a_retArgumetName.size()){
+        mxArray* pStringomExt = mxCreateString(cpcStringReturned);
+        if(m_variablesMap.contains(a_retArgumetName)){
+            mxArray* mxOldData = m_variablesMap[a_retArgumetName];
+            if(mxOldData){
+                mxDestroyArray(mxOldData);
+            }
+        }
+        m_variablesMap.insert(a_retArgumetName,pStringomExt);
+    }
+}
+
+
 bool emulator::Application::TryToRunExt1Function(const QString& a_coreCommand, const QString& a_inputArgumentsLine,const QString& a_retArgumetName)
 {
     if( m_ext1Functions.count(a_coreCommand)){
-        ExtendedFunction* ext1Func = m_ext1Functions[a_coreCommand];
-        const char* cpcStringReturned = (*ext1Func->tableEntryItem.function)(a_inputArgumentsLine.toStdString().c_str());
-
-        if(cpcStringReturned && a_retArgumetName.size()){
-            mxArray* pStringomExt = mxCreateString(cpcStringReturned);
-            if(m_variablesMap.contains(a_retArgumetName)){
-                mxArray* mxOldData = m_variablesMap[a_retArgumetName];
-                if(mxOldData){
-                    mxDestroyArray(mxOldData);
-                }
-            }
-            m_variablesMap.insert(a_retArgumetName,pStringomExt);
-        }
-
+        RunExtendedFunction(m_ext1Functions[a_coreCommand]->exFunc,a_inputArgumentsLine,a_retArgumetName);
         return true;
     }
     return false;
@@ -980,9 +1138,12 @@ void emulator::Application::RunCommand( QString& a_command, bool a_bThrowExcepti
             }
             return;
         }
-        else if( !TryToRunExt1Function(coreCommand,inputArgumentsLine,retArgumetName)){
-            errorString =  QString("\nCommand \"") + coreCommand + "\" could not be found";
-            goto errorReturnPoint;
+        else {
+            emit InsertOutputSignal("\n");
+            if( !TryToRunExt1Function(coreCommand,inputArgumentsLine,retArgumetName)  && !RunScriptOrExt2(coreCommand,inputArgumentsLine,retArgumetName) ){
+                errorString =  QString("Command \"") + coreCommand + "\" could not be found";
+                goto errorReturnPoint;
+            }
         }
 
 errorReturnPoint:
@@ -1245,7 +1406,7 @@ const char* emulator::BadCommandException::what()const noexcept
 
 emulator::Extend1LibraryStruct::~Extend1LibraryStruct()
 {
-    ExtendedFunction* pFncToDelete;
+    Extend1Function* pFncToDelete;
 
     this->notDestructing = 0;
     while(this->functions.size()){
@@ -1262,10 +1423,20 @@ emulator::Extend1LibraryStruct::~Extend1LibraryStruct()
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-emulator::ExtendedFunction::~ExtendedFunction()
+emulator::Extend1Function::~Extend1Function()
 {
     if(this->parentLibHandle && this->parentLibHandle->notDestructing){
         this->parentLibHandle->functions.erase(this->thisIter);
+    }
+}
+
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+emulator::Extend2Function::~Extend2Function()
+{
+    if(this->parentLibHandle){
+        ::common::system::UnloadDynLib(this->parentLibHandle);
     }
 }
 
