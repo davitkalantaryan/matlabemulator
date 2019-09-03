@@ -71,11 +71,13 @@ HEADERS += \
     $${PWD}/../../../src/emulator/matlab_emulator_centralwidget.hpp             \
     $${PWD}/../../../src/emulator/matlab_emulator_commandprompt.hpp             \
     $${PWD}/../../../src/utils/common_system_include_private.hpp                \
+    $${PWD}/../../../include/matlab/emulator/extendbyexe_functions.hpp          \
     $${PWD}/../../../include/matlab/emulator/extend1bylib.hpp                   \
     $${PWD}/../../../include/matlab/emulator/extend2bylib.hpp                   \
     $${PWD}/../../../include/matlab/emulator/extendbylib_common.hpp             \
     $${PWD}/../../../include/matlab/emulator/extendbylib_print_functions.hpp    \
-    $${PWD}/../../../src/include_p/extendbylib_functions_private.hpp      \
+    $${PWD}/../../../include/matlab/emulator/extendbylib_other_functions.hpp    \
+    $${PWD}/../../../src/include_p/extendbylib_functions_private.hpp            \
     $${PWD}/../../../include/common/system/runexe.hpp                           \
     $${PWD}/../../../include/common/system/handlelib.hpp                        \
     $${PWD}/../../../include/common/matlabemulator_compiler_internal.h          \

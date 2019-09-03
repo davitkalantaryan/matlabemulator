@@ -10,7 +10,7 @@
  * @file       matlab/emulator/extend1bylib.hpp
  * @copyright  Copyright (C) DESY For details refers to LICENSE.md
  * @brief      Header for providing API to comunicate with extensions
- * @author     Davit Kalantaryan <cesar.garcia@ingeniouskey.com>
+ * @author     Davit Kalantaryan <davit.kalantaryan@desy.de>
  * @date       2019 Sep 1
  * @details
  *   Include file declars symbols necessary for extending MATLAB emulator (method 1) \n

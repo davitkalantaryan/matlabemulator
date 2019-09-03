@@ -1231,7 +1231,9 @@ mxArray*  emulator::Application::GetMultipleBranchesForTimeInterval(const QStrin
         if(nIndex<0){
             break;
         }
-        branchName = a_argumentsLine.left(nIndex).trimmed();
+        // todo: DK check if this is correct now
+        //branchName = a_argumentsLine.left(nIndex).trimmed(); ??
+        branchName = remainingLine.left(nIndex).trimmed();
         remainingLine = remainingLine.mid(nIndex+1);
         aInput.push_back(branchName.toStdString());
     }
