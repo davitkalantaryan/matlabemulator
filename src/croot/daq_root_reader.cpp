@@ -144,6 +144,7 @@ void GetMultipleBranchesForTime( time_t a_startTime, time_t a_endTime, const ::s
 
     while(aOutputIn.size()){
         pActiveBrnch = aOutputIn.front();
+        vectFiles.clear();
         data::indexing::GetListOfFilesForTimeInterval(aOutputIn.front()->userClbk->branchName.c_str(),a_startTime,a_endTime,&vectFiles);
         unNumberOfFiles = vectFiles.size();
         for(unFileIndex=0;unFileIndex<unNumberOfFiles;++unFileIndex){
@@ -268,13 +269,13 @@ nextBranchPreparedInAdvance:
         if( (numberOfEntriesInTheFile<1) || (!GetDataTypeAndCountStatic(pBranch,pOutBranchItem)) ){
             goto nextBranchItem;
         }
-        aMemory.SetBranchInfo((*pOutBranchItem)->info);
 
         MAKE_REPORT_THIS(2,"nNumOfEntries[%s] = %d, dataType:%s, itemsCount=%d",
                          cpcDaqEntryName, (*pOutBranchItem).numberOfEntries,
                          cpcDataType,aBrInfo.itemsCount);
 
         for(nIndexEntry=0;nIndexEntry<numberOfEntriesInTheFile;++nIndexEntry){
+            aMemory.SetBranchInfo((*pOutBranchItem)->info);
             pBranch->SetAddress(aMemory.rawBuffer());
             pBranch->GetEntry(nIndexEntry);
 
@@ -290,7 +291,14 @@ nextBranchPreparedInAdvance:
             case callbackReturn::StopThisBranch:
                 pOutBranchItemTmp = pOutBranchItem++;
                 a_pOutputOut->splice(a_pOutputOut->end(),*a_pOutputIn,pOutBranchItemTmp);
-                goto nextBranchPreparedInAdvance;
+                if(pOutBranchItem!=pOutBranchItemEnd){
+                    goto nextBranchPreparedInAdvance;
+                }
+                else{
+                    goto loopFinished;
+                }
+
+                //continue;
             case callbackReturn::StopForAll:
                 nReturn = 0;
                 goto returnPoint;
@@ -303,7 +311,8 @@ nextBranchPreparedInAdvance:
 nextBranchItem:
         ++pOutBranchItem;
 
-    }
+    }  // for(pOutBranchItem=a_pOutputIn->begin();pOutBranchItem!=pOutBranchItemEnd;){
+loopFinished:
 
     nReturn = 0;
 returnPoint:

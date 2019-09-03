@@ -33,7 +33,7 @@ init_uc_environment_lsbCode=`lsb_release -c | cut -f 2`
 
 #ERS_SYS_OPT_DIR=/afs/ifh.de/group/pitz/doocs/data/ers/sys/$init_uc_environment_lsbCode/opt
 #ERS_DIRECTORY_BASE calculated in the source file below
-. init_qt_for_current_qt
+######## source init_qt_for_current_qt  ### should be understood
 init_uc_environment_ERS_SYS_OPT_DIR=${ERS_DIRECTORY_BASE}/sys/$init_uc_environment_lsbCode/opt
 
 
