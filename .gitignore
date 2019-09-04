@@ -35,6 +35,7 @@ workspaces/*/*
 !workspaces/*_vs/*.vcxproj
 !workspaces/*_vs/*.vcxproj.filters
 !workspaces/*_qt/*.pro
+!workspaces/*_qt/.qmake.conf
 #!workspaces/*_qt/*.pro.user
 
 contrib/sys/*/*/*/*

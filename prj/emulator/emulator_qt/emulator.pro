@@ -50,6 +50,7 @@ win32{
 }
 
 LIBS += -L$${OUT_PWD}
+LIBS += -L$${PWD}/../../libs/extendbylib_functions_qt
 LIBS += -L$${PWD}/../../../sys/$$CODENAME/lib
 LIBS += -lextendbylib_functions
 
