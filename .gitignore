@@ -4,11 +4,15 @@
 *.pro.user*
 .tmp/*
 *.dll
+*.mexa64
+*.so
 
 /examples/extend2_test_current.bmat
 /examples/prog_with_stdin_test
+/prj/tests/prog_with_stdin_test_qt/prog_with_stdin_test
 
 /docs/doc/~*
+/prj/emulator/emulator_qt/matlabemulator
 
 prj/*/*_qt/Makefile
 prj/*/*_qt/Makefile.*

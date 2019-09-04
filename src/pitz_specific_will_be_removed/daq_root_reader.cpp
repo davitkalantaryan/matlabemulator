@@ -2,9 +2,23 @@
  *
  */
 
+#ifndef _WIN64
+
 #include <daq_root_reader.hpp>
 #include <pitz/daq/data/indexing.hpp>
 #include <cpp11+/common_defination.h>
+#include <list>
+#include <TFile.h>
+#include <TTree.h>
+#include <TROOT.h>
+#include <TPluginManager.h>
+#include <TKey.h>
+#include <TLeaf.h>
+#ifdef QT_VERSION
+#include <QDebug>
+#defiune LOG_IMPLEMENED     QDebug
+#else
+#endif
 
 #define MAKE_ERROR_THIS(...)
 #define MAKE_REPORT_THIS(...)
@@ -12,62 +26,12 @@
 
 #define TMP_FILE_NAME       "tmp.root.file.root"
 
-
 namespace pitz{ namespace daq{
-
-
-void RootCleanup()
-{
-    //
-}
-
-}}  // namespace pitz{ namespace daq{
-
-
-#ifdef _WIN32
-
-namespace pitz{ namespace daq{
-
-
-//static bool ShallContinue(void* clbkData, const data::memory::ForClient&)
-//{
-//    //
-//}
-
-int RootInitialize()
-{
-    return 0;
-}
-
-int GetMultipleBranchesFromFile( const char*, const ::std::list< BranchUserInputInfo >&, ::std::list< BranchOutputForUserInfo* >* )
-{
-    return -1;
-}
-
-void GetMultipleBranchesForTime( time_t, time_t, const ::std::list< BranchUserInputInfo >&, ::std::list< BranchOutputForUserInfo* >*)
-{
-    return ;
-}
-
-
-}}  // namespace pitz{ namespace daq{
-
-#else  // #ifdef _WIN32
-
-#include <TFile.h>
-#include <TTree.h>
-#include "TROOT.h"
-#include "TPluginManager.h"
-#include <TKey.h>
-#include "TLeaf.h"
-
 
 struct STimeCompareData{
     time_t startTime, endTime;
 };
 
-
-using namespace pitz::daq;
 
 namespace callbackReturn { enum Type{Collect,SkipThisEntry,StopThisBranch,StopForAll,Next}; }
 
@@ -80,12 +44,6 @@ static int GetMultipleBranchesFromFileStatic( const char* a_rootFileName,
                                               ::std::list< BranchOutputForUserInfo* >* a_pOutputOut,
                                               TypeContinue a_fpContinue, void* a_pClbkData);
 
-namespace pitz{ namespace daq{
-
-//static bool ShallContinue(void* clbkData, const data::memory::ForClient&)
-//{
-//    //
-//}
 
 int RootInitialize()
 {
@@ -96,6 +54,12 @@ int RootInitialize()
                                           "TStreamerInfo()");
 
     return 0;
+}
+
+
+void RootCleanup()
+{
+    //
 }
 
 
@@ -157,17 +121,11 @@ void GetMultipleBranchesForTime( time_t a_startTime, time_t a_endTime, const ::s
     }
 
 
-    //data::indexing::GetListOfFilesForTimeInterval()
-    //nReturn = GetMultipleBranchesFromFileStatic(a_rootFileName,&aOutputIn,a_pOutput,
-    //                                         [](void*,const data::memory::ForClient&){return callbackReturn::Collect;},nullptr);
-
-
     a_pOutput->splice(a_pOutput->end(),aOutputIn,aOutputIn.begin(),aOutputIn.end());
 }
 
-}} // namespace pitz{ namespace daq{
 
-
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
 static callbackReturn::Type TimeComparePrivate(void* a_pData,const data::memory::ForClient& a_memory)
 {
@@ -331,7 +289,6 @@ returnPoint:
     return nReturn;
 }
 
-#include <QDebug>
 
 static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< BranchOutputForUserInfo* >::iterator a_pOutBranchItem)
 {
@@ -349,8 +306,10 @@ static bool GetDataTypeAndCountStatic(const TBranch* a_pBranch, ::std::list< Bra
 
     ++(++aList);  // skipping time and eventNumber
     if ((pLeaf = STATIC_CAST(TLeaf*,aList()))) {
-        cpcTypeName = pLeaf->GetName();
-        qDebug()<<pLeaf<<cpcTypeName;
+        cpcTypeName = pLeaf->GetName();        
+#ifdef LOG_IMPLEMENED
+        LOG_IMPLEMENED()<<pLeaf<<cpcTypeName;
+#endif
     }
     else{
         (*a_pOutBranchItem)->info.dataType = data::type::Error;
@@ -421,6 +380,8 @@ finalizeOldArrays:
     return true;
 }
 
-//#include "MatlabEngine.hpp"
 
-#endif  // #ifdef _WIN32
+}} // namespace pitz{ namespace daq{
+
+
+#endif  // #ifdef _WIN64
