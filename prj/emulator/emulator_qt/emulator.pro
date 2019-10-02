@@ -39,8 +39,8 @@ win32{
 } else {
     GCCPATH = $$system(which gcc)
     message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
-    include($${PWD}/../../common/common_qt/root_no_gui_common.pri)
-    QMAKE_CXXFLAGS += -std=c++11
+    # is there need for root should be found from environment
+    #include($${PWD}/../../common/common_qt/root_no_gui_common.pri)
     LIBS += -leng
     LIBS += -lmat
     LIBS += -lhdf5_hl
