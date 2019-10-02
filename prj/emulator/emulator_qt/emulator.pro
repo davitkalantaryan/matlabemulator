@@ -39,7 +39,7 @@ win32{
 } else {
     GCCPATH = $$system(which gcc)
     message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
-    include($${PWD}/../../common/common_qt/root_no_gui_common.pri)
+    #include($${PWD}/../../common/common_qt/root_no_gui_common.pri)
     LIBS += -leng
     LIBS += -lmat
     LIBS += -lhdf5_hl

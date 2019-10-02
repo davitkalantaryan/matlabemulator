@@ -181,7 +181,8 @@ emulator::Application::Application(int& a_argc, char** a_argv)
         for( auto aKey : keys ){
             emit a_this->InsertOutputSignal(QString("\n'")+aKey+"'");
         }
-    }));
+    }));    
+#ifdef ROOT_APP
     m_functionsMap.insert("getdatafl",CommandStruct("gets and uncompress root data from specified file",[](Application* a_this,const QString& a_inputArgumentsLine,const QString& a_retArgumetName){
         if((!a_inputArgumentsLine.size())||(!a_retArgumetName.size())){
             // make error report
@@ -217,6 +218,7 @@ emulator::Application::Application(int& a_argc, char** a_argv)
             a_this->m_variablesMap.insert(a_retArgumetName,mxData);
         }
     }));
+#endif
     m_functionsMap.insert("tomatlab",CommandStruct("put data from program memory to embedded MATLAB memory",
                                                    [](Application* a_this,const QString& a_inputArgumentsLine,const QString&){
         //qDebug()<< "varSize=" << a_this->m_variablesMap.size() << "; keys=" << a_this->m_variablesMap.keys();

@@ -2,7 +2,7 @@
  *
  */
 
-#ifndef _WIN64
+#ifdef ROOT_APP
 
 #include <daq_root_reader.hpp>
 #include <pitz/daq/data/indexing.hpp>
