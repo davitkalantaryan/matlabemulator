@@ -1,0 +1,221 @@
+	linux-vdso.so.1 =>  (0x00007ffdf7d41000)
+	libCore.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libCore.so.5.28 (0x00007f468b839000)
+	libCint.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libCint.so.5.28 (0x00007f468aea4000)
+	libRIO.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libRIO.so.5.28 (0x00007f468aad9000)
+	libNet.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libNet.so.5.28 (0x00007f468a7a6000)
+	libHist.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libHist.so.5.28 (0x00007f468a116000)
+	libGraf.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libGraf.so.5.28 (0x00007f4689d5c000)
+	libGraf3d.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libGraf3d.so.5.28 (0x00007f4689a2e000)
+	libGpad.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libGpad.so.5.28 (0x00007f468973e000)
+	libTree.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libTree.so.5.28 (0x00007f4689321000)
+	libRint.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libRint.so.5.28 (0x00007f46890f0000)
+	libPostscript.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libPostscript.so.5.28 (0x00007f4688ea0000)
+	libMatrix.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libMatrix.so.5.28 (0x00007f4688a35000)
+	libPhysics.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libPhysics.so.5.28 (0x00007f4688791000)
+	libMathCore.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libMathCore.so.5.28 (0x00007f4688372000)
+	libThread.so.5.28 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libThread.so.5.28 (0x00007f468811f000)
+	libdl.so.2 => /lib64/libdl.so.2 (0x00007f4687f1b000)
+	libpthread.so.0 => /lib64/libpthread.so.0 (0x00007f4687cff000)
+	libstdc++.so.6 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6 (0x00007f468797b000)
+	libm.so.6 => /lib64/libm.so.6 (0x00007f4687679000)
+	libgcc_s.so.1 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1 (0x00007f4687462000)
+	libc.so.6 => /lib64/libc.so.6 (0x00007f4687094000)
+	libz.so.1 => /lib64/libz.so.1 (0x00007f4686e7e000)
+	libncurses.so.5 => /lib64/libncurses.so.5 (0x00007f4686c57000)
+	libpcre.so.0 => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/matlab/current_lib/libpcre.so.0 (0x00007f4686a3a000)
+	libcrypt.so.1 => /lib64/libcrypt.so.1 (0x00007f4686803000)
+	libfreetype.so.6 => /lib64/libfreetype.so.6 (0x00007f4686544000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f468c3ac000)
+	libtinfo.so.5 => /lib64/libtinfo.so.5 (0x00007f468631a000)
+	libfreebl3.so => /lib64/libfreebl3.so (0x00007f4686117000)
+	libbz2.so.1 => /lib64/libbz2.so.1 (0x00007f4685f07000)
+	libpng15.so.15 => /lib64/libpng15.so.15 (0x00007f4685cdc000)
+
+	Version information:
+	./libtest_mex_root_crash.mexa64:
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libCore.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libdl.so.2 (GLIBC_2.2.5) => /lib64/libdl.so.2
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.3.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libCint.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libdl.so.2 (GLIBC_2.2.5) => /lib64/libdl.so.2
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libstdc++.so.6 (CXXABI_1.3.1) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4.5) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libc.so.6 (GLIBC_2.3) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libRIO.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libNet.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libHist.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libgcc_s.so.1 (GCC_4.0.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libGraf.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libGraf3d.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libGpad.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libTree.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libRint.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libPostscript.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libMatrix.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libPhysics.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libMathCore.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libgcc_s.so.1 (GCC_4.0.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/root/current/lib64/libThread.so.5.28:
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libstdc++.so.6 (CXXABI_1.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libstdc++.so.6 (GLIBCXX_3.4) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6
+		libpthread.so.0 (GLIBC_2.2.5) => /lib64/libpthread.so.0
+		libpthread.so.0 (GLIBC_2.3.2) => /lib64/libpthread.so.0
+	/lib64/libdl.so.2:
+		ld-linux-x86-64.so.2 (GLIBC_PRIVATE) => /lib64/ld-linux-x86-64.so.2
+		libc.so.6 (GLIBC_PRIVATE) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/lib64/libpthread.so.0:
+		ld-linux-x86-64.so.2 (GLIBC_2.2.5) => /lib64/ld-linux-x86-64.so.2
+		ld-linux-x86-64.so.2 (GLIBC_2.3) => /lib64/ld-linux-x86-64.so.2
+		ld-linux-x86-64.so.2 (GLIBC_PRIVATE) => /lib64/ld-linux-x86-64.so.2
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3.2) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_PRIVATE) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libstdc++.so.6:
+		ld-linux-x86-64.so.2 (GLIBC_2.3) => /lib64/ld-linux-x86-64.so.2
+		libgcc_s.so.1 (GCC_4.2.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libgcc_s.so.1 (GCC_3.3) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libgcc_s.so.1 (GCC_3.0) => /afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.16) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.17) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3.2) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+	/lib64/libm.so.6:
+		ld-linux-x86-64.so.2 (GLIBC_PRIVATE) => /lib64/ld-linux-x86-64.so.2
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_PRIVATE) => /lib64/libc.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/gcc/current_lib/libgcc_s.so.1:
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/lib64/libc.so.6:
+		ld-linux-x86-64.so.2 (GLIBC_2.3) => /lib64/ld-linux-x86-64.so.2
+		ld-linux-x86-64.so.2 (GLIBC_PRIVATE) => /lib64/ld-linux-x86-64.so.2
+	/lib64/libz.so.1:
+		libc.so.6 (GLIBC_2.3.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/lib64/libncurses.so.5:
+		libdl.so.2 (GLIBC_2.2.5) => /lib64/libdl.so.2
+		libc.so.6 (GLIBC_2.3) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.15) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/afs/ifh.de/group/pitz/doocs/data/ers/scripts/unix/.all/../../../sys/Nitrogen/opt/matlab/current_lib/libpcre.so.0:
+		libc.so.6 (GLIBC_2.3) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/lib64/libcrypt.so.1:
+		libfreebl3.so (NSSRAWHASH_3.12.3) => /lib64/libfreebl3.so
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_PRIVATE) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/lib64/libfreetype.so.6:
+		libpng15.so.15 (PNG15_0) => /lib64/libpng15.so.15
+		libc.so.6 (GLIBC_2.11) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/lib64/libtinfo.so.5:
+		libc.so.6 (GLIBC_2.3) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.15) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/lib64/libfreebl3.so:
+		libdl.so.2 (GLIBC_2.2.5) => /lib64/libdl.so.2
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/lib64/libbz2.so.1:
+		libc.so.6 (GLIBC_2.3) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6
+	/lib64/libpng15.so.15:
+		libm.so.6 (GLIBC_2.2.5) => /lib64/libm.so.6
+		libc.so.6 (GLIBC_2.11) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.14) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.3.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.4) => /lib64/libc.so.6
+		libc.so.6 (GLIBC_2.2.5) => /lib64/libc.so.6

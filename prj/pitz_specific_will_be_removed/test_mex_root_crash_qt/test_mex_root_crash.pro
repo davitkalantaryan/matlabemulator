@@ -34,16 +34,16 @@ count(optionsCpp11, 1):QMAKE_CXXFLAGS += -std=c++0x
 #DEFINES += nullptr=NULL
 QMAKE_CXXFLAGS += -std=c++0x
 
-include(../../common/common_qt/mex_common.pri)
+#include(../../common/common_qt/mex_common.pri)
 
-TARGET_EXT = mexa64
+#TARGET_EXT = mexa64
 #TARGET = mexdaq_browser2.mexa64
 TEMPLATE = lib
 
 CONFIG += debug
 QT -= core
 QT -= gui
-
+QMAKE_LINK = -W1,-shared
 SOURCES += \
     $${PWD}/../../../src/pitz_specific_will_be_removed/entry_test_mex_root_crash.cpp
 

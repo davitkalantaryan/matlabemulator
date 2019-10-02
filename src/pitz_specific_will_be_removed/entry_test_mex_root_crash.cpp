@@ -18,13 +18,15 @@
  *
  */
 
-#include <mex.h>
+//#include <mex.h>
 
 //void mexFunction (int a_nNumOuts, mxArray *a_Outputs[],int a_nNumInps, const mxArray*a_Inputs[]) __attribute__ ((unused));
 //extern "C" int mexPrintf(const char	*/* printf style format */,.../* any additional arguments */)  __attribute__((weak));
 
+typedef struct SmxArray mxArray ;
+
 void mexFunction(int a_nNumOuts, mxArray *a_Outputs[],int a_nNumInps, const mxArray*a_Inputs[])
 {
-    mexPrintf("version: 5. ni=%d, inps=%p, no=%d, outs=%p\n",a_nNumInps,a_Inputs,a_nNumOuts,a_Outputs);
+    //mexPrintf("version: 6. ni=%d, inps=%p, no=%d, outs=%p\n",a_nNumInps,a_Inputs,a_nNumOuts,a_Outputs);
 
 }

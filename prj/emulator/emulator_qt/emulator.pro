@@ -13,7 +13,7 @@ CONFIG += DEBUG
 #QMAKE_CXXFLAGS_WARN_ON += -Wno-format-nonliteral
 
 #CONFIG += c++17
-#QMAKE_CXXFLAGS += -std=c++14
+#QMAKE_CXXFLAGS += -std=c++11
 
 
 # include ($${PWD}/../../common/common_qt/sys_common.pri)
@@ -40,6 +40,7 @@ win32{
     GCCPATH = $$system(which gcc)
     message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
     include($${PWD}/../../common/common_qt/root_no_gui_common.pri)
+    QMAKE_CXXFLAGS += -std=c++11
     LIBS += -leng
     LIBS += -lmat
     LIBS += -lhdf5_hl

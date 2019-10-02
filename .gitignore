@@ -9,6 +9,10 @@
 
 /examples/extend2_test_current.bmat
 /examples/prog_with_stdin_test
+/examples/remove_root_dependency.sh
+/examples/setpreload_root_libraries_and_start.sh
+
+
 /prj/tests/prog_with_stdin_test_qt/prog_with_stdin_test
 
 /docs/doc/~*

@@ -12,9 +12,13 @@ CONFIG += DEBUG
 #CONFIG += c++17
 #QMAKE_CXXFLAGS += -std=c++14
 
-GCCPATH = $$system(which gcc)
+win32{
 
-message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
+} else {
+    GCCPATH = $$system(which gcc)
+    message("!!!!!!!!!!! GCCPATH=$$GCCPATH")
+    QMAKE_CXXFLAGS += -std=c++11
+}
 
 #include ($${PWD}/../../common/common_qt/sys_common.pri)
 include ($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_matrix_without_libs_common.pri)

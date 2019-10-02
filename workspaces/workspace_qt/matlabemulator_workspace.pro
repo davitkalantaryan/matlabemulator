@@ -12,7 +12,7 @@ win32{
 message("OUTPUT_DIRCETORY=" $$OUTPUT_DIRCETORY)
 
 TEMPLATE = subdirs
-#CONFIG += ordered
+CONFIG += ordered
 DESTDIR = $${OUT_PWD}
 
 SUBDIRS += \
