@@ -7,7 +7,9 @@
 #include <QRegExp>
 #include <iostream>
 #include <QFileInfo>
+#ifdef ROOT_APP
 #include <daq_root_reader.hpp>
+#endif
 #include <QFile>
 #include <wchar.h>
 #include <QDir>
@@ -132,7 +134,9 @@ emulator::Application::Application(int& a_argc, char** a_argv)
 
     CHECK_MATLAB_ENGINE_AND_DO(engSetVisible,0);
 
+#ifdef ROOT_APP
     pitz::daq::RootInitialize();
+#endif
 
     ::QObject::connect(&m_settingsUpdateTimer,&QTimer::timeout,this,[this](){
         emit UpdateSettingsSignal(*m_pSettings);
@@ -429,7 +433,9 @@ emulator::Application::~Application()
         m_first = pEditorNext;
     }
 
+#ifdef ROOT_APP
     pitz::daq::RootCleanup();
+#endif
 
     if(m_pEngine){
         engClose(m_pEngine);
@@ -1161,6 +1167,7 @@ errorReturnPoint:
 
 }
 
+#ifdef ROOT_APP
 static mxArray* DataToMatlab( const ::std::list< pitz::daq::BranchOutputForUserInfo* >& a_data );
 
 mxArray*  emulator::Application::GetMultipleBranchesFromFileCls(const QString& a_argumentsLine)
@@ -1355,6 +1362,8 @@ static size_t InfoToMatlabRaw(mxClassID* a_pClsIdOfData,mxArray* a_pMatlabArray,
 
     return unItemSize;
 }
+
+#endif  // #ifdef ROOT_APP
 
 
 

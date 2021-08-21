@@ -45,6 +45,7 @@ win32{
     LIBS += -lmat
     LIBS += -lhdf5_hl
     LIBS += -lhdf5
+    LIBS += -ldl
     LIBS += -lpthread
     SOURCES += \
         $${PWD}/../../../src/utils/common_system_unix.cpp

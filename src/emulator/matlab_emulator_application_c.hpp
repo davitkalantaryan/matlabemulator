@@ -167,8 +167,11 @@ private:
     void noMessageOutput(QtMsgType a_type, const QMessageLogContext &,const QString &a_message);
     void OpenOrReopenMatEngine();
     ssize_t  ReadMatlabErrorPipe(char* buffer, rdtype_t bufferSize);
+
+#ifdef ROOT_APP
     mxArray*  GetMultipleBranchesFromFileCls(const QString& argumentsLine);
     mxArray*  GetMultipleBranchesForTimeInterval(const QString& a_argumentsLine);
+#endif
     bool FindAnyFileInKnownDirs(const QString& inputName,QString* scriptPath);
     int  FindScriptorExt2File(const QString& inputName,QString* scriptPath);
 
