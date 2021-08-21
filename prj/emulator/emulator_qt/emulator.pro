@@ -17,7 +17,8 @@ CONFIG += DEBUG
 
 
 # include ($${PWD}/../../common/common_qt/sys_common.pri)
-include ($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_matrix_common.pri)
+#include ($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_matrix_common.pri)
+include($${PWD}/../../../contrib/matlab/prj/common/common_qt/matlab_matrix_without_libs_common.pri)
 
 INCLUDEPATH += $${PWD}/../../../include
 INCLUDEPATH += $${PWD}/../../../src/include_p
